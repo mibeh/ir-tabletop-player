@@ -1,251 +1,108 @@
 # IR Tabletop Player
 
-IR Tabletop Player hosts a CTEP-aligned scenario library and runs facilitator-led exercises.
+IR Tabletop Player stores scenarios aligned with [CISA's Tabletop Exercise Packages (CTEPs)](https://www.cisa.gov/resources-tools/services/cisa-tabletop-exercise-packages) and runs facilitator-led incident response tabletop exercises. It includes an admin UI, separate facilitator and presenter views, and skills for creating scenarios and after-action reports.
 
----
+## Quick start
 
-## Overview
+You need Python 3.10 or newer and [uv](https://docs.astral.sh/uv/). The browser also needs access to `esm.sh`, which serves the UI's lit-html module.
 
-The platform manages incident response tabletop exercises. Scenarios are stored in a CTEP-aligned catalog (uploaded as JSON via the UI). Exercises are created against a participant roster and managed by a facilitator through the admin UI.
-
-### Key Capabilities
-
-- **CTEP-aligned scenario library** — manual upload, edit, copy, and reuse of structured scenario templates
-- **Admin UI** for scenario management and exercise lifecycle
-- **Live presentation** — separate presenter and facilitator views driven from a slide deck computed at runtime; completed exercises can be browsed locally in the presenter view
-- **Participant roster** captured at exercise creation time
-- **Completion export & after-action report** — export a completed exercise to a JSON package, then render a TLP-marked DOCX AAR via the `ttx-report-generator` skill
-- **Smoke test suite** — backend + Playwright UI tests under `tests/`
-
----
-
-## Setup
-
-### Prerequisites
-
-- Python 3.10+
-- [uv](https://docs.astral.sh/uv/) for dependency management
-
-### Installation
+The app has no built-in authentication. `server.py` listens on all network interfaces by default, so bind it to the loopback interface for local use:
 
 ```bash
-git clone <clone_url> ir-tabletop-player
+git clone https://github.com/mibeh/ir-tabletop-player.git
 cd ir-tabletop-player
 uv sync
+uv run python server.py --host 127.0.0.1
 ```
 
-### Running
+Open the [admin UI](http://localhost:8001). The [API documentation](http://localhost:8001/docs) and [health endpoint](http://localhost:8001/health) are also available. For development reloads, add `--reload` to the server command.
 
-```bash
-uv run python server.py
-uv run python server.py --reload   # dev auto-reload
-```
+## Run an exercise
 
-- **Admin UI** → http://localhost:8001
-- **API docs** → http://localhost:8001/docs
-- **Health check** → http://localhost:8001/health
+1. Create a compatible scenario JSON with the included [scenario generator skill](skills/ttx-scenario-generator/SKILL.md), or bring an existing CTEP-aligned JSON file. The skill saves new scenarios under `skills/ttx-scenario-generator/scenarios_output/`.
+2. In the admin UI, open **Scenarios**, select the JSON file under **Upload Scenario JSON**, and click **Upload**.
+3. Open **Exercises** → **New Exercise**. Enter a title, select the uploaded scenario, and add at least one participant. Each participant needs a name, position, exercise role, and department.
+4. Open the exercise and click **Begin Exercise**. This opens the facilitator and presenter views. The facilitator advances the slides and can record notes, reveal questions, and check expected actions.
+5. Advancing **onto** the hotwash slide starts debrief. Record the debrief summary and follow-up actions in the facilitator view, then click **Complete Exercise**.
+6. In the completed exercise's admin view, click **Download Package**. This writes a completion-package JSON file on the **server** under `exercise_reports/`; it does not trigger a browser download.
 
----
+An exercise moves through `available → in_progress ⇄ paused → debrief → complete`. The presenter can browse completed exercises. Archiving is separate from status; archived exercises are hidden from the list unless **Show archived** is selected.
 
-## Configuration
+## Scenario and report files
 
-All configuration is via environment variables. Both have defaults, so no setup is required for local use.
-
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `DATABASE_URL` | No | SQLAlchemy URL. Defaults to `sqlite+aiosqlite:///./ir_tabletop.db` |
-| `LOG_LEVEL` | No | Logging level. Defaults to `INFO` |
-
----
-
-## Running Tests
-
-Smoke tests live under `tests/`. They use a tempdir SQLite DB per pytest run and never touch `ir_tabletop.db`.
-
-```bash
-# One-time setup
-uv sync --extra test
-uv run playwright install chromium
-
-# All tests
-uv run pytest
-
-# Backend only (skip browser)
-uv run pytest tests/api
-
-# UI only
-uv run pytest -m ui
-```
-
-| Layer | Tooling | Speed |
+| Artifact | Location | How it is made |
 |---|---|---|
-| Backend (`tests/api/`) | httpx + ASGITransport (no server) | seconds |
-| UI (`tests/ui/`) | Playwright + uvicorn subprocess | tens of seconds |
+| Scenario JSON | `skills/ttx-scenario-generator/scenarios_output/<scenario_id>.json` | The [scenario generator skill](skills/ttx-scenario-generator/SKILL.md) creates it; upload it through **Scenarios**. |
+| Completion-package JSON | `exercise_reports/exercise-*.json` | **Download Package** writes it after the exercise is complete. |
+| After-action report DOCX | `skills/ttx-report-generator/reports/aar-*.docx` | The [report generator skill](skills/ttx-report-generator/SKILL.md) analyzes the scenario and completion package, then renders a report. |
 
----
+The report skill can also use a Teams or Zoom `.vtt` transcript when available. Without one, it must state the evidence limit and cannot infer what participants said. Its `render_aar.py` script takes an authored findings JSON, not a raw completion package.
 
-## Database Migrations
+These output directories and the local SQLite database are ignored by Git. The files remain on disk until you remove them.
 
-The schema is managed by [Alembic](https://alembic.sqlalchemy.org/). On server startup, the app runs `alembic upgrade head` against the configured `DATABASE_URL` before serving requests.
+## Configuration and storage
 
-| Command | Purpose |
+`DATABASE_URL` can be set in the environment or in a `.env` file at the project root. It defaults to `sqlite+aiosqlite:///./ir_tabletop.db`, relative to the directory from which you start the server. No configuration file is needed for local use.
+
+`server.py` currently sets logging to `INFO`. Although `src/config.py` defines a `LOG_LEVEL` setting, the server does not apply it.
+
+The database has two tables: `scenarios` holds reusable templates, and `exercises` holds the selected scenario's copied content, participant roster, presentation state, and debrief data. JSON fields are stored through SQLAlchemy's `JSON` type.
+
+## API and scenario format
+
+The interactive [API documentation](http://localhost:8001/docs) is the full endpoint reference. The main workflow uses:
+
+| Method and path | Purpose |
 |---|---|
-| `uv run alembic upgrade head` | Apply all pending migrations (also runs at startup) |
-| `uv run alembic revision --autogenerate -m "msg"` | Generate a migration from model diffs |
-| `uv run alembic current` | Show the currently applied revision |
-| `uv run alembic history` | List migrations |
-| `uv run alembic downgrade -1` | Roll back one revision (dev only) |
+| `POST /scenarios` | Upload one or more JSON files using repeated `files` multipart fields. The response reports success or failure for each file. |
+| `POST /exercises` | Create an exercise from a `scenario_catalog_id`, title, and participant roster. |
+| `POST /exercises/{id}/present/next` | Advance the deck, release injects on first visit, and enter debrief on arrival at hotwash. |
+| `PUT /exercises/{id}/debrief` | Save the debrief summary and follow-up actions. |
+| `POST /exercises/{id}/complete` | Complete an exercise in debrief. |
+| `POST /exercises/{id}/export` | Write the completion package for a completed exercise. |
 
-Always inspect autogenerated migrations before committing — Alembic doesn't catch every kind of change (type-only edits, constraint renames, etc.).
+Scenario JSON requires `scenario_id`, `metadata`, `exercise_overview`, `scenario_details`, and a nonempty `modules` array. Every module needs a nonempty `injects` array. The `scenario_id` format is `ttx-YYYY-MM-DD-NN`; `metadata.framing`, when present, must be `internal` or `vendor-responsibility`. See the [scenario schema](skills/ttx-scenario-generator/references/scenario-schema.md) for the full structure.
 
----
+For uploads, invalid JSON, invalid structure, and duplicate IDs appear as failed entries in the per-file response; other files in the batch can still succeed. An empty upload returns HTTP `400`. Changing a scenario ID with `PUT /scenarios/{id}` to one used by another scenario returns HTTP `409`.
 
-## Tech Stack
+## Development
 
-- **Python** 3.10+
-- **uv** for dependency management and venv (deps locked in `uv.lock`)
-- **FastAPI** + **Uvicorn** (async, single-process)
-- **SQLAlchemy 2.x** (async) with **aiosqlite** by default
-- **Pydantic 2** + **pydantic-settings** for request models and env-var config
-- **lit-html 3** for the single-page admin UI (no build step — loaded as an ESM CDN module)
+### Tests
 
-## Architecture
+Tests use a temporary SQLite database, separate from `ir_tabletop.db`. Backend tests use httpx with ASGITransport; UI tests use Playwright and a local Uvicorn process.
 
-```
-ir-tabletop/
-├── api/
-│   ├── app.py                  # FastAPI application entry point (lifespan-managed)
-│   ├── routes/
-│   │   ├── exercises.py        # Exercise lifecycle + presentation endpoints
-│   │   └── scenarios.py        # CTEP scenario catalog CRUD
-│   └── static/
-│       ├── index.html          # Admin UI
-│       ├── present.html        # Presenter view (slide deck; local browse when complete)
-│       ├── facilitate.html     # Facilitator view (questions, actions, notes)
-│       └── lib.js              # Shared client helpers (lit-html, API fetch, slide deck)
-├── src/
-│   ├── models/
-│   │   ├── exercise.py         # Exercise ORM model (CTEP JSON + state machine)
-│   │   └── scenario.py         # Scenario catalog ORM model
-│   ├── config.py               # Pydantic settings (env vars, with defaults)
-│   └── database.py             # Async SQLAlchemy engine and session
-├── alembic/                    # Migrations (applied automatically at startup)
-├── skills/
-│   ├── ttx-scenario-generator/ # Generates CTEP scenario JSON for the catalog
-│   └── ttx-report-generator/   # CLI: renders findings JSON → TLP-marked AAR DOCX
-├── tests/
-│   ├── conftest.py             # Session DB + api_client + live_server fixtures
-│   ├── factories.py            # Deterministic CTEP / exercise payload builders
-│   ├── fixtures/seeds.py       # seeded_scenario → debrief_exercise chain
-│   ├── api/                    # Backend smoke tests (httpx + ASGITransport)
-│   ├── ui/                     # Playwright tests against a uvicorn subprocess
-│   └── skills/                 # Tests for the report generator / VTT parser
-├── server.py                   # Uvicorn entry point
-├── pyproject.toml              # Project metadata + dependencies (uv)
-└── uv.lock                     # Locked dependency versions
+```bash
+uv sync --extra test
+uv run playwright install chromium   # one-time browser install
+uv run pytest                         # full suite
+uv run pytest tests/api               # backend
+uv run pytest -m ui                   # browser UI
 ```
 
----
+### Database migrations
 
-## Exercise Lifecycle
+[Alembic](https://alembic.sqlalchemy.org/) manages the schema. Server startup applies pending migrations automatically.
 
+```bash
+uv run alembic current
+uv run alembic history
+uv run alembic revision --autogenerate -m "describe change"
+uv run alembic upgrade head
 ```
-New Exercise
-     │
-     ▼
-   available ──► in_progress ⇄ paused ──► debrief ──► complete
-```
 
-1. **Create** — facilitator defines title, scenario type, participant roster, and optional threat intel context; the exercise starts in `available`
-2. **Launch** — facilitator starts the exercise, moving it to `in_progress`; `current_slide` and `furthest_slide` are seeded at `ground_rules`
-3. **In Progress** — facilitator advances the slide deck via `/present/next`. The deck is `ground_rules → module:N → inject:N:M → … → hotwash`. Visiting an inject slide for the first time stamps `released_at` on that inject
-4. **Pause / Resume** — facilitator can pause at any time; pause time is tracked and excluded from `active_duration_minutes`
-5. **Debrief** — `/present/next` from the `hotwash` slide auto-transitions the exercise to `debrief`; facilitator records notes and follow-up actions
-6. **Complete** — only allowed from `debrief`
+Inspect autogenerated migrations before committing them.
 
----
+### Project layout
 
-## API Reference
+- [`api/routes/`](api/routes/) contains the scenario, exercise, and presentation endpoints.
+- [`api/static/`](api/static/) contains the admin, presenter, and facilitator pages. The UI uses lit-html without a build step.
+- [`src/models/`](src/models/) defines the two SQLAlchemy tables; [`src/config.py`](src/config.py) and [`src/database.py`](src/database.py) handle settings and database setup.
+- [`alembic/`](alembic/) contains schema migrations.
+- [`skills/`](skills/) contains the scenario and report generator instructions and renderer.
+- [`tests/`](tests/) contains API, UI, and skill tests.
 
-Full interactive API documentation is available at `/docs` when the server is running.
-
-### Core Endpoints
-
-| Method | Path | Description |
-|--------|------|-------------|
-| `POST` | `/exercises` | Create a new exercise (starts in `available`) |
-| `GET` | `/exercises` | List exercises (excludes archived; pass `?include_archived=true` to include them) |
-| `GET` | `/exercises/{id}` | Get exercise detail |
-| `POST` | `/exercises/{id}/start` | Launch the exercise (`available` → `in_progress`) |
-| `POST` | `/exercises/{id}/pause` | Pause an in-progress exercise |
-| `POST` | `/exercises/{id}/resume` | Resume a paused exercise |
-| `POST` | `/exercises/{id}/complete` | Mark exercise complete (only from `debrief`) |
-| `POST` | `/exercises/{id}/archive` | Archive an exercise (auto-pauses if in-progress) |
-| `POST` | `/exercises/{id}/unarchive` | Unarchive an exercise |
-| `DELETE` | `/exercises/{id}` | Hard-delete an exercise (irreversible; refused with `409` while `in_progress`) |
-| `POST` | `/exercises/{id}/export` | Write a JSON completion package to `./exercise_reports/` (only from `complete`) |
-| `PUT` | `/exercises/{id}/debrief` | Save debrief summary and follow-up actions |
-| `POST` | `/exercises/{id}/present/next` | Advance one slide; stamps `released_at` on injects; transitions to `debrief` from `hotwash` |
-| `POST` | `/exercises/{id}/present/previous` | Move current slide back one (never regresses `furthest_slide`) |
-| `POST` | `/exercises/{id}/present/goto` | Jump to a previously-visited slide (forward jumps rejected) |
-| `POST` | `/exercises/{id}/present/reveal` | Reveal a discussion question on an inject (idempotent) |
-| `PATCH` | `/exercises/{id}/present/inject` | Patch per-inject runtime state (facilitator notes, checked expected actions) |
-| `GET` | `/scenarios` | List CTEP scenario templates |
-| `POST` | `/scenarios` | Upload a CTEP scenario template (multipart file upload) |
-| `GET` | `/scenarios/{id}` | Get a scenario |
-| `GET` | `/scenarios/{id}/download` | Download a scenario as a JSON file |
-| `PUT` | `/scenarios/{id}` | Update a scenario |
-| `DELETE` | `/scenarios/{id}` | Delete a scenario |
-| `POST` | `/scenarios/{id}/copy` | Duplicate a scenario into a new row |
-| `GET` | `/health` | Liveness probe — returns `{"status": "ok"}` |
-| `GET` | `/` | Serves the admin UI (`api/static/index.html`) |
-| `GET` | `/present.html` | Serves the presenter view |
-| `GET` | `/facilitate.html` | Serves the facilitator view |
-
----
-
-## Data Model
-
-Two tables, managed by Alembic (migrations apply at server startup).
-
-| Table | Purpose |
-|-------|---------|
-| `exercises` | One row per exercise — title, scenario type, status (state machine above), threat intel context, optional FK to `scenarios.id`, copied CTEP JSON columns (`exercise_overview`, `exercise_guidelines`, `modules`, `success_criteria`, `hotwash`, `appendices`), participant roster as JSON, lifecycle timestamps (`created_at`, `started_at`, `debrief_started_at`, `completed_at`), debrief output (`debrief_summary`, `follow_up_actions`), archive flag (`archived`, `archived_at`) |
-| `scenarios` | CTEP template catalog — `scenario_id` (unique business key), the nine CTEP top-level keys stored as `JSON` columns, denormalized scalars (`title`, `scenario_type`, `framing`, `difficulty`, `module_count`, `inject_count`), and `created_at` |
-
-JSON-shaped fields use SQLAlchemy's `JSON` column type and are read/written as native dicts and lists in route code.
-
----
-
-## Scenario JSON Schema (CTEP)
-
-Scenarios uploaded to `/scenarios` are produced by the [`ttx-scenario-generator`](skills/ttx-scenario-generator/) skill and validated server-side. Required top-level keys:
-
-- `scenario_id` — must match regex `^ttx-\d{4}-\d{2}-\d{2}-\d{2,}$` (e.g. `ttx-2026-05-26-01`)
-- `metadata` — object; if `metadata.framing` is set, it must be `internal` or `vendor-responsibility`
-- `exercise_overview` — object
-- `scenario_details` — object (contains `scenario_type`, `difficulty`, etc.)
-- `modules` — array (each module contains injects, discussion questions, follow-ups)
-
-Optional top-level keys preserved on round-trip: `participant_roles`, `exercise_guidelines`, `hotwash`, `appendices`, `success_criteria`.
-
-Conflicts on `scenario_id` return `409`. The admin UI's Scenarios tab includes a structured editor for modules/injects/questions and a download button to export the reconstituted JSON.
-
----
-
-## Development Notes
-
-- **Schema changes go through Alembic.** Models are the source of truth. Generate a migration with `uv run alembic revision --autogenerate -m "describe change"`, inspect it, commit it. Migrations run automatically at server startup.
-- **Absolute imports.** The codebase uses `from src.foo import bar` / `from api.routes import ...`. Run via `uv run python server.py` (or `uv run`) — that puts the project root on `sys.path` automatically.
-- **JSON columns are typed.** Use `mapped_column(JSON, default=list)` (or `default=dict`). Route code reads/writes native objects — no `json.loads`/`json.dumps` at the boundary. The values still serialize as TEXT on SQLite under the hood.
-- **Admin UI renders via lit-html.** Use the ``html`...` `` tagged template literal for all dynamic markup — interpolated values are auto-escaped by position (text / attribute / event / property). Bind events with `@click=${fn}` closures; never write `onclick="…"` strings or assign user-controlled data via `innerHTML`. `render(tpl, container)` patches the DOM safely.
-- **Tests live under `tests/`.** Run with `uv run pytest` (see the "Running Tests" section above). There is no linter config and no build step — don't invent commands for those.
-
----
+Code uses absolute imports such as `from src.database import ...`. Run from the project root with `uv run` so those imports resolve. Schema changes go through Alembic.
 
 ## Contributing
 
-1. Clone the repo and create a feature branch
-2. Run `uv sync`
-3. Start the server: `uv run python server.py`
-4. Submit a pull request against `main`
+Create a feature branch, run the relevant tests above, and submit a pull request against `main`.

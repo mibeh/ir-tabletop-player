@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Tooling caches
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Local environment configuration
+.env
+.env.*
+!.env.example
+
+# Playwright (pytest-playwright artifacts)
+playwright-report/
+test-results/
+
+# Database (local SQLite)
+*.db
+*.db-shm
+*.db-wal
+*.db-journal
+*.sqlite3
+
+# macOS
+.DS_Store
+
+# Exercise & Scenario related output files
+exercise_reports/
+skills/ttx-report-generator/reports/*.docx
+skills/ttx-scenario-generator/scenarios_output/
+
+#Docs
+docs/superpowers/

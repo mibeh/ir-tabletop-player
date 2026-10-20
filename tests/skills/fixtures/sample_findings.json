@@ -1,0 +1,114 @@
+{
+  "exercise_overview": {
+    "name": "Operation Paper Trail",
+    "dates": "2026-05-29",
+    "scope": "A TTX of ~2.5 hours for an internal organization.",
+    "mission_areas": [
+      "Protection",
+      "Response"
+    ],
+    "core_capabilities": [
+      "Cybersecurity",
+      "Operational Coordination"
+    ],
+    "objectives": [
+      "Exercise the BEC playbook end-to-end.",
+      "Practice cross-team escalation."
+    ],
+    "threat_or_hazard": "Cyber Incident \u2014 Business Email Compromise",
+    "scenario_description": "An AiTM phishing attack against Finance.",
+    "modules": [
+      {
+        "number": 1,
+        "title": "Detection"
+      },
+      {
+        "number": 2,
+        "title": "Containment"
+      }
+    ],
+    "sponsor": "IR Team",
+    "participating_organizations": "SOC, IR, Finance, Legal.",
+    "points_of_contact": "Facilitator: Jane Doe, jane@example.org",
+    "caveat": "Fictional Training Exercise \u2014 Not a Real Incident"
+  },
+  "executive_summary": "The exercise tested the organization's response to a finance-targeted business email compromise across detection, containment, and recovery.\n\nParticipants demonstrated strong within-SLA triage and early legal engagement. The most pressing area for improvement is the absence of a session-revocation step in the BEC playbook.",
+  "objective_capability_alignment": [
+    {
+      "objective": "Exercise the BEC playbook end-to-end.",
+      "core_capabilities": [
+        "Cybersecurity"
+      ]
+    },
+    {
+      "objective": "Practice cross-team escalation.",
+      "core_capabilities": [
+        "Operational Coordination"
+      ]
+    }
+  ],
+  "objective_analyses": [
+    {
+      "number": 1,
+      "objective": "Exercise the BEC playbook end-to-end.",
+      "core_capabilities": [
+        "Cybersecurity"
+      ],
+      "strengths": [
+        "The SOC triaged the Scanner alert within SLA."
+      ],
+      "areas_for_improvement": [
+        {
+          "observation": "Session revocation was not the first instinct.",
+          "priority": "High",
+          "references": [
+            "BEC Playbook v3"
+          ],
+          "analysis": "The team reset the password before revoking sessions.",
+          "recommendation": "Add an explicit session-revocation step."
+        }
+      ]
+    },
+    {
+      "number": 2,
+      "objective": "Practice cross-team escalation.",
+      "core_capabilities": [
+        "Operational Coordination"
+      ],
+      "strengths": [
+        "Legal was engaged early."
+      ],
+      "areas_for_improvement": []
+    }
+  ],
+  "improvement_plan": [
+    {
+      "exercise_objective": "Exercise the BEC playbook end-to-end.",
+      "core_capability": "Cybersecurity",
+      "issue": "No session-revocation step in the playbook.",
+      "priority": "High",
+      "corrective_actions": [
+        "Update the BEC playbook."
+      ],
+      "capability_element": "Planning",
+      "responsible_organization": "IR",
+      "poc": "Jane Doe",
+      "start_date": "2026-06-15",
+      "completion_date": "2026-07-15"
+    }
+  ],
+  "participants": [
+    {
+      "name": "Alex Chen",
+      "position": "SOC Analyst",
+      "exercise_role": "Participant",
+      "department": "SOC"
+    },
+    {
+      "name": "Jordan Lee",
+      "position": "IR Lead",
+      "exercise_role": "Facilitator",
+      "department": "IR"
+    }
+  ]
+}

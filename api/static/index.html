@@ -1,0 +1,2557 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>IR Tabletop Player</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lato:wght@400;600;700&display=swap" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-text-strong: #1f2937;
+      --color-accent: #2563eb;
+      --color-accent-hover: #1d4ed8;
+      --color-surface-subtle: #e2e8f0;
+      --color-border: #e2e8f0;
+      --color-text: #1e293b;
+      --color-muted: #64748b;
+      --color-success: #16a34a;
+      --color-warning: #d97706;
+      --color-danger: #dc2626;
+      --color-background: #f8fafc;
+      --sidebar: 240px;
+    }
+    body { font-family: 'Lato', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--color-background); color: var(--color-text); display: flex; min-height: 100vh; }
+
+    /* Sidebar */
+    #sidebar { width: var(--sidebar); background: var(--color-text-strong); color: #fff; display: flex; flex-direction: column; flex-shrink: 0; }
+    #sidebar .brand { padding: 20px 16px; border-bottom: 1px solid rgba(255,255,255,.15); }
+    #sidebar .brand .product { font-size: 14px; font-weight: 700; letter-spacing: .02em; color: #fff; line-height: 1.4; }
+    #sidebar nav { flex: 1; padding: 12px 0; }
+    #sidebar nav button { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 16px; background: none; border: none; color: rgba(255,255,255,.8); font-size: 13px; cursor: pointer; text-align: left; transition: background .15s; }
+    #sidebar nav button:hover { background: rgba(255,255,255,.08); color: #fff; }
+    #sidebar nav button.active { background: rgba(255,255,255,.15); color: #fff; font-weight: 600; }
+    #sidebar nav .section-label { padding: 16px 16px 4px; font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; opacity: .45; }
+
+    /* Main */
+    #main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+    #topbar { background: #fff; border-bottom: 1px solid var(--color-border); padding: 0 24px; height: 56px; display: flex; align-items: center; gap: 12px; }
+    #topbar h2 { font-size: 16px; font-weight: 600; flex: 1; }
+    #content { flex: 1; padding: 24px; overflow-y: auto; }
+
+    /* Cards & Grid */
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .grid-4 { display: grid; grid-template-columns: repeat(4,1fr); gap: 16px; }
+    .card { background: #fff; border: 1px solid var(--color-border); border-radius: 8px; padding: 20px; }
+    .card h3 { font-size: 13px; font-weight: 600; color: var(--color-muted); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 8px; }
+    .card .big-num { font-size: 32px; font-weight: 700; color: var(--color-text); }
+
+    /* Badges */
+    .badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+    .badge-available { background: #f1f5f9; color: #475569; }
+    .badge-in_progress { background: #dcfce7; color: #15803d; }
+    .badge-paused { background: #fef3c7; color: #92400e; }
+    .badge-debrief { background: #ede9fe; color: #6d28d9; }
+    .badge-complete { background: #f0fdf4; color: #166534; }
+    .badge-archived { background: #e2e8f0; color: #475569; }
+
+    /* Buttons */
+    .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; border: none; transition: opacity .15s; }
+    .btn:disabled { opacity: .45; cursor: not-allowed; }
+    .btn-primary { background: var(--color-accent); color: #fff; }
+    .btn-primary:hover:not(:disabled) { background: var(--color-accent-hover); }
+    .btn-secondary { background: #fff; border: 1px solid var(--color-border); color: var(--color-text); }
+    .btn-secondary:hover:not(:disabled) { background: var(--color-background); }
+    .btn-success { background: var(--color-success); color: #fff; }
+    .btn-success:hover:not(:disabled) { opacity: .85; }
+    .btn-danger { background: var(--color-danger); color: #fff; }
+    .btn-danger:hover:not(:disabled) { opacity: .85; }
+    .btn-warn { background: var(--color-warning); color: #fff; }
+    .btn-sm { padding: 5px 10px; font-size: 12px; }
+
+    /* Tables */
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th { text-align: left; padding: 10px 12px; font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--color-muted); background: var(--color-background); border-bottom: 1px solid var(--color-border); }
+    td { padding: 12px; border-bottom: 1px solid var(--color-border); vertical-align: top; }
+    tr:hover td { background: #fafbfc; }
+
+    /* Forms */
+    .form-row { margin-bottom: 16px; }
+    .form-row label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; }
+    .form-row input, .form-row select, .form-row textarea {
+      width: 100%; padding: 8px 10px; border: 1px solid var(--color-border); border-radius: 6px;
+      font-size: 13px; font-family: inherit; background: #fff; color: var(--color-text);
+    }
+    .form-row input:focus, .form-row select:focus, .form-row textarea:focus {
+      outline: none; border-color: var(--color-accent); box-shadow: 0 0 0 2px rgba(37,99,235,.18);
+    }
+    .form-row textarea { min-height: 80px; resize: vertical; }
+    .form-hint { font-size: 11px; color: var(--color-muted); margin-top: 4px; }
+
+    /* Panels */
+    .panel { display: none; }
+    .panel.active { display: block; }
+
+    /* Modal */
+    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 100; align-items: center; justify-content: center; }
+    .modal-overlay.open { display: flex; }
+    .modal { background: #fff; border-radius: 10px; width: 560px; max-width: 95vw; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,.25); }
+    .modal-header { padding: 20px 24px 16px; border-bottom: 1px solid var(--color-border); display: flex; align-items: center; justify-content: space-between; }
+    .modal-header h3 { font-size: 16px; font-weight: 600; }
+    .modal-close { background: none; border: none; font-size: 20px; cursor: pointer; color: var(--color-muted); line-height: 1; padding: 0 4px; }
+    .modal-body { padding: 20px 24px; }
+    .modal-footer { padding: 16px 24px; border-top: 1px solid var(--color-border); display: flex; gap: 8px; justify-content: flex-end; }
+
+    /* Misc */
+    .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
+    .page-header h2 { font-size: 20px; font-weight: 700; }
+    .section { margin-bottom: 28px; }
+    .section-title { font-size: 15px; font-weight: 600; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--color-border); }
+    .empty { text-align: center; padding: 40px 20px; color: var(--color-muted); font-size: 14px; }
+    .alert { padding: 10px 14px; border-radius: 6px; font-size: 13px; margin-bottom: 16px; }
+    .alert-success { background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; }
+    .alert-error { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+    .alert-info { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+    .participant-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+    .participant-row input, .participant-row select { flex: 1; }
+    .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,.4); border-top-color: #fff; border-radius: 50%; animation: spin .6s linear infinite; vertical-align: middle; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    code { background: #f1f5f9; padding: 1px 5px; border-radius: 3px; font-size: 12px; font-family: 'Courier New', monospace; word-break: break-all; }
+    .inject-card { border: 1px solid var(--color-border); border-radius: 6px; padding: 14px; margin-bottom: 10px; }
+    .inject-card .inject-title { font-weight: 600; font-size: 14px; margin-bottom: 4px; }
+    .inject-card .inject-meta { font-size: 12px; color: var(--color-muted); margin-bottom: 8px; }
+    .inject-card .inject-desc { font-size: 13px; line-height: 1.6; }
+    .progress-bar { height: 4px; background: var(--color-border); border-radius: 2px; overflow: hidden; margin-top: 8px; }
+    .progress-fill { height: 100%; background: var(--color-accent); border-radius: 2px; transition: width .3s; }
+    .tag { display: inline-block; background: #f1f5f9; color: var(--color-muted); border-radius: 4px; padding: 2px 8px; font-size: 11px; margin: 2px; }
+    pre { background: #f8fafc; border: 1px solid var(--color-border); border-radius: 6px; padding: 12px; font-size: 12px; overflow-x: auto; white-space: pre-wrap; word-break: break-word; }
+    .info-table td:first-child { color: var(--color-muted); font-size: 12px; padding: 4px 12px 4px 0; white-space: nowrap; }
+    .info-table td:last-child { font-size: 13px; padding: 4px 0; }
+    .info-table tr:hover td { background: transparent; }
+  </style>
+</head>
+<body>
+
+<div id="sidebar">
+  <div class="brand">
+    <div class="product">IR Tabletop Player</div>
+  </div>
+  <nav>
+    <button class="active" onclick="showPanel('dashboard')">Dashboard</button>
+    <button onclick="showPanel('exercises')">Exercises</button>
+    <button onclick="showPanel('scenarios')">Scenarios</button>
+  </nav>
+</div>
+
+<div id="main">
+  <div id="content">
+
+    <!-- DASHBOARD -->
+    <div id="panel-dashboard" class="panel active">
+      <div class="page-header"><h2>Overview</h2></div>
+      <div class="grid-4" style="margin-bottom:24px">
+        <div class="card"><h3>Total Exercises</h3><div class="big-num" id="stat-total">—</div></div>
+        <div class="card"><h3>In Progress</h3><div class="big-num" id="stat-active">—</div></div>
+        <div class="card"><h3>Completed</h3><div class="big-num" id="stat-complete">—</div></div>
+        <div class="card"><h3>Scenarios</h3><div class="big-num" id="stat-scenarios">—</div></div>
+      </div>
+      <div class="section">
+        <div class="section-title">Recent Exercises</div>
+        <div class="card table-wrap" id="recent-exercises-table"></div>
+      </div>
+      <div class="section">
+        <div class="section-title">Scenarios</div>
+        <div class="card table-wrap" id="dashboard-scenarios-table"></div>
+      </div>
+    </div>
+
+    <!-- EXERCISES LIST -->
+    <div id="panel-exercises" class="panel">
+      <div class="page-header">
+        <h2>Exercises</h2>
+        <div style="display:flex;gap:8px;align-items:center">
+          <label style="font-size:13px;color:var(--color-muted);display:flex;gap:6px;align-items:center">
+            <input type="checkbox" id="ex-show-archived" onchange="loadExercises()" /> Show archived
+          </label>
+          <button class="btn btn-primary" onclick="showPanel('create-exercise')">+ New Exercise</button>
+        </div>
+      </div>
+      <div class="card table-wrap">
+        <div id="exercises-table"></div>
+      </div>
+    </div>
+
+    <!-- EXERCISE DETAIL -->
+    <div id="panel-exercise-detail" class="panel">
+      <div class="page-header">
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+          <button class="btn btn-secondary btn-sm" onclick="showPanel('exercises')">← Back</button>
+          <h2 id="detail-title">Exercise</h2>
+          <span id="detail-badge"></span>
+        </div>
+        <div id="detail-actions" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+      </div>
+      <div id="detail-content"></div>
+    </div>
+
+    <!-- SCENARIOS (list + upload) -->
+    <div id="panel-scenarios" class="panel">
+      <div class="page-header">
+        <h2>Scenario Library</h2>
+      </div>
+
+      <div class="card" style="max-width:700px;margin-bottom:24px">
+        <div class="section-title">Upload Scenario JSON</div>
+        <div id="scenario-upload-alert"></div>
+        <div class="form-row">
+          <label>JSON files *</label>
+          <input type="file" id="scenario-file" accept=".json,application/json" multiple />
+          <div class="form-hint">Output from the <code>ttx-scenario-generator</code> skill. Select one or more files.</div>
+        </div>
+        <button class="btn btn-primary" id="scenario-upload-btn" onclick="uploadScenario()">Upload</button>
+      </div>
+
+      <div class="card table-wrap">
+        <div id="scenarios-table"></div>
+      </div>
+    </div>
+
+    <!-- SCENARIO DETAIL -->
+    <div id="panel-scenario-detail" class="panel">
+      <div class="page-header">
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+          <button class="btn btn-secondary btn-sm" onclick="showPanel('scenarios')">← Back</button>
+          <h2 id="scenario-detail-title">Scenario</h2>
+        </div>
+        <div id="scenario-detail-actions" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+      </div>
+      <div id="scenario-detail-content"></div>
+    </div>
+
+    <!-- CREATE EXERCISE -->
+    <div id="panel-create-exercise" class="panel">
+      <div class="page-header">
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+          <button class="btn btn-secondary btn-sm" onclick="showPanel('exercises')">← Back</button>
+          <h2>New Exercise</h2>
+        </div>
+      </div>
+      <div class="card" style="max-width:700px">
+        <div id="create-alert"></div>
+        <div class="form-row">
+          <label>Exercise Title *</label>
+          <input type="text" id="ex-title" placeholder="e.g. Ransomware Tabletop — Q1 2026" />
+        </div>
+        <div class="form-row">
+          <label>Scenario Template *</label>
+          <select id="ex-scenario-catalog">
+            <option value="">Select a scenario template…</option>
+          </select>
+          <div class="form-hint">exercise_overview, modules, success_criteria, hotwash, and appendices are copied from the selected catalog row.</div>
+        </div>
+
+        <div class="section-title" style="margin-top:20px">Participants *</div>
+        <div id="participants-container">
+          <div class="participant-row">
+            <input type="text" placeholder="Full Name" class="p-name" />
+            <input type="text" placeholder="Position (e.g. CISO)" class="p-position" />
+            <select class="p-exercise-role">
+              <option value="">Exercise Role…</option>
+              <option value="Facilitator">Facilitator</option>
+              <option value="Participant">Participant</option>
+              <option value="Observer">Observer</option>
+            </select>
+            <input type="text" placeholder="Department" class="p-department" />
+            <button class="btn btn-secondary btn-sm" onclick="removeParticipant(this)">✕</button>
+          </div>
+        </div>
+        <button class="btn btn-secondary btn-sm" onclick="addParticipant()" style="margin-top:8px">+ Add Participant</button>
+        <div class="form-hint" style="margin-top:6px">Participants are recorded on the exercise as a roster.</div>
+
+        <div style="margin-top:24px;display:flex;gap:8px">
+          <button class="btn btn-primary" id="create-btn" onclick="createExercise()">Create Exercise</button>
+          <button class="btn btn-secondary" onclick="showPanel('exercises')">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+
+
+  </div>
+</div>
+
+<!-- CONFIRMATION — single modal for every destructive/confirming action. -->
+<div class="modal-overlay" id="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="confirm-modal-title">
+  <div class="modal" style="width:460px">
+    <div class="modal-header">
+      <h3 id="confirm-modal-title">Confirm</h3>
+      <button class="modal-close" aria-label="Close" data-confirm-cancel>×</button>
+    </div>
+    <div class="modal-body">
+      <p id="confirm-modal-message" style="line-height:1.5"></p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" data-confirm-cancel>Cancel</button>
+      <button class="btn btn-danger" id="confirm-modal-accept">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+  // lit-html loads as an ES module; module scripts have defer semantics.
+  // The classic <script> below runs first (synchronously), so we expose
+  // the lit-html refs on window and bootstrap the app from this module.
+  import { html, render } from "https://esm.sh/lit-html@3";
+  import { repeat } from "https://esm.sh/lit-html@3/directives/repeat.js";
+  window.litHtml = html;
+  window.litRender = render;
+  window.litRepeat = repeat;
+  // Boot — honor a deep-link hash like #exercise=<id> from the facilitator window.
+  const hash = (window.location.hash || '').replace(/^#/, '');
+  const match = hash.match(/^exercise=(.+)$/);
+  if (match) {
+    showPanel('exercises');
+    loadExerciseDetail(match[1]);
+  } else {
+    loadDashboard();
+  }
+</script>
+
+<script>
+// lit-html wrappers. Defined as plain functions so they are hoisted and
+// available at script-load time, but they only resolve window.lit* at
+// call time — by which point the module script has populated them.
+// Passing through `strings` preserves the TemplateStringsArray identity,
+// so lit-html's per-call-site template cache still works.
+function html(strings, ...values) { return window.litHtml(strings, ...values); }
+function render(tpl, container) { return window.litRender(tpl, container); }
+function repeat(items, key, fn) { return window.litRepeat(items, key, fn); }
+function formatStatus(s) {
+  if (!s) return '';
+  return s.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+}
+// Title-case a categorical tag like "supply_chain" or "vendor-responsibility"
+// so it reads "Supply Chain" / "Vendor Responsibility" in the table.
+function prettifyTag(s) {
+  if (!s) return '—';
+  return s.split(/[_-]/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+}
+const API = '';
+
+// ---------- Navigation ----------
+const NAV_PANELS = ['dashboard','exercises','scenarios'];
+// Subviews highlight their parent section in the sidebar.
+const NAV_PARENT = {
+  'create-exercise': 'exercises',
+  'exercise-detail': 'exercises',
+  'scenario-detail': 'scenarios',
+};
+function showPanel(id) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  const el = document.getElementById('panel-' + id);
+  if (el) el.classList.add('active');
+  const navId = NAV_PARENT[id] || id;
+  document.querySelectorAll('#sidebar nav button').forEach((b,i) => {
+    b.classList.toggle('active', NAV_PANELS[i] === navId);
+  });
+  if (id === 'exercises') loadExercises();
+  if (id === 'create-exercise') loadScenarioCatalogOptions();
+  if (id === 'scenarios') loadScenarios();
+  if (id === 'dashboard') loadDashboard();
+}
+
+// ---------- API helpers ----------
+async function api(path, opts = {}) {
+  const res = await fetch(API + path, opts);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }));
+    throw new Error(formatApiError(err.detail) || res.statusText);
+  }
+  return res.json();
+}
+
+// FastAPI returns `detail` as a string for HTTPException but as an array of
+// validation issue objects (each with loc/msg/type) for 422. Flatten the
+// array to a readable string so callers don't see "[object Object]".
+function formatApiError(detail) {
+  if (!detail) return '';
+  if (typeof detail === 'string') return detail;
+  if (Array.isArray(detail)) {
+    return detail.map(d => {
+      const loc = Array.isArray(d.loc) ? d.loc.slice(1).join('.') : '';
+      return loc ? `${loc}: ${d.msg}` : d.msg;
+    }).join('; ');
+  }
+  return JSON.stringify(detail);
+}
+
+function fmtDate(iso) {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleString('en-US', { month:'short', day:'numeric', year:'numeric', hour:'2-digit', minute:'2-digit' });
+}
+
+function fmtMinutes(minutes) {
+  if (minutes === null || minutes === undefined) return '—';
+  const total = Math.max(0, Math.floor(minutes));
+  const h = Math.floor(total / 60);
+  const m = total % 60;
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+}
+
+function fmtProgress(position, total) {
+  if (!total) return '—';
+  if (!position) return `0 / ${total}`;
+  return `${position} / ${total}`;
+}
+
+function toast(msg) {
+  const el = document.createElement('div');
+  el.style.cssText = 'position:fixed;bottom:20px;right:20px;background:#1e3a5f;color:#fff;padding:10px 18px;border-radius:6px;font-size:13px;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,.25)';
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 2500);
+}
+
+// ---------- Generic sortable tables ----------
+// _tableSorts[tableId] = { field, dir }. dir is 'asc' or 'desc'.
+const _tableSorts = {};
+const _DIFFICULTY_ORDER = { low: 1, medium: 2, high: 3 };
+// types[field] = 'number' | 'date' | 'difficulty' (default: string)
+function _sortRows(tid, rows, types) {
+  const s = _tableSorts[tid];
+  if (!s) return rows;
+  const t = (types || {})[s.field];
+  return rows.slice().sort(function (a, b) {
+    let av = a[s.field], bv = b[s.field];
+    if (t === 'number') { av = Number(av) || 0; bv = Number(bv) || 0; }
+    else if (t === 'date') { av = av ? new Date(av).getTime() : 0; bv = bv ? new Date(bv).getTime() : 0; }
+    else if (t === 'difficulty') {
+      av = _DIFFICULTY_ORDER[(av || '').toLowerCase()] || 0;
+      bv = _DIFFICULTY_ORDER[(bv || '').toLowerCase()] || 0;
+    } else {
+      av = String(av == null ? '' : av).toLowerCase();
+      bv = String(bv == null ? '' : bv).toLowerCase();
+    }
+    if (av < bv) return s.dir === 'asc' ? -1 : 1;
+    if (av > bv) return s.dir === 'asc' ? 1 : -1;
+    return 0;
+  });
+}
+function _sortArrow(tid, field) {
+  const s = _tableSorts[tid];
+  if (!s || s.field !== field) return '';
+  return s.dir === 'asc' ? ' ▲' : ' ▼';
+}
+function _th(tid, field, label) {
+  return html`<th style="cursor:pointer;user-select:none" @click=${() => onSort(tid, field)}>${label}${_sortArrow(tid, field)}</th>`;
+}
+
+// ---------- Row selection (bulk actions) ----------
+const _selected = { exercises: new Set(), scenarios: new Set() };
+
+function _rerender(table) {
+  if (table === 'exercises') renderExercisesTable();
+  else if (table === 'scenarios') renderScenariosTable();
+}
+
+function _toggleSelect(table, id, checked) {
+  if (checked) _selected[table].add(id);
+  else _selected[table].delete(id);
+  _rerender(table);
+}
+
+function _toggleSelectAll(table, ids, checked) {
+  if (checked) ids.forEach(id => _selected[table].add(id));
+  else ids.forEach(id => _selected[table].delete(id));
+  _rerender(table);
+}
+
+function _clearSelection(table) {
+  _selected[table].clear();
+  _rerender(table);
+}
+
+function _selectionCheckbox(table, id) {
+  const checked = _selected[table].has(id);
+  return html`<td style="width:32px;text-align:center" @click=${(e) => e.stopPropagation()}>
+    <input type="checkbox" .checked=${checked} @change=${(e) => _toggleSelect(table, id, e.target.checked)} />
+  </td>`;
+}
+
+function _selectAllHeader(table, ids) {
+  const sel = _selected[table];
+  const allChecked = ids.length > 0 && ids.every(id => sel.has(id));
+  return html`<th style="width:32px;text-align:center">
+    <input type="checkbox" .checked=${allChecked} @change=${(e) => _toggleSelectAll(table, ids, e.target.checked)} />
+  </th>`;
+}
+
+function _bulkBar(table, buttons) {
+  const count = _selected[table].size;
+  if (!count) return html``;
+  return html`<div style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:#eff6ff;border:1px solid var(--color-accent);border-radius:6px;margin-bottom:10px">
+    <span style="font-size:13px;color:var(--color-text)"><strong>${count}</strong> selected</span>
+    <div style="flex:1"></div>
+    ${buttons}
+    <button class="btn btn-secondary btn-sm" @click=${() => _clearSelection(table)}>Clear</button>
+  </div>`;
+}
+function onSort(tid, field) {
+  const cur = _tableSorts[tid];
+  if (cur && cur.field === field) cur.dir = cur.dir === 'asc' ? 'desc' : 'asc';
+  else _tableSorts[tid] = { field: field, dir: 'asc' };
+  if (tid === 'recent-exercises') renderRecentExercises();
+  else if (tid === 'dashboard-scenarios') renderDashboardScenarios();
+  else if (tid === 'exercises') renderExercisesTable();
+  else if (tid === 'scenarios') renderScenariosTable();
+  else if (tid === 'participants') renderParticipantsTable();
+}
+
+// ---------- Dashboard ----------
+let _dashboardExercises = [];
+let _dashboardScenarios = [];
+async function loadDashboard() {
+  try {
+    const exResp = await api('/exercises').catch(() => ({ exercises: [] }));
+    const exes = exResp.exercises || [];
+    document.getElementById('stat-total').textContent = exes.length;
+    document.getElementById('stat-active').textContent = exes.filter(e => e.status === 'in_progress' || e.status === 'paused').length;
+    document.getElementById('stat-complete').textContent = exes.filter(e => e.status === 'complete').length;
+
+    _dashboardExercises = exes.slice(0, 6);
+    if (!_tableSorts['recent-exercises']) _tableSorts['recent-exercises'] = { field: 'created_at', dir: 'desc' };
+    renderRecentExercises();
+
+    const scResp = await api('/scenarios').catch(() => ({ scenarios: [] }));
+    document.getElementById('stat-scenarios').textContent = scResp.count ?? (scResp.scenarios || []).length;
+    _dashboardScenarios = (scResp.scenarios || []).slice(0, 6);
+    if (!_tableSorts['dashboard-scenarios']) _tableSorts['dashboard-scenarios'] = { field: 'created_at', dir: 'desc' };
+    renderDashboardScenarios();
+  } catch(e) { console.error(e); }
+}
+
+function renderRecentExercises() {
+  const tbl = document.getElementById('recent-exercises-table');
+  if (!_dashboardExercises.length) {
+    render(html`<div class="empty">No exercises yet. <a href="#" @click=${e => { e.preventDefault(); showPanel('create-exercise'); }}>Create one →</a></div>`, tbl);
+    return;
+  }
+  const types = {
+    created_at: 'date',
+    started_at: 'date',
+    completed_at: 'date',
+    participant_count: 'number',
+    slide_position: 'number',
+    active_duration_minutes: 'number',
+  };
+  const rows = _sortRows('recent-exercises', _dashboardExercises, types);
+  render(html`
+    <table><thead><tr>
+      ${_th('recent-exercises', 'title', 'Title')}
+      ${_th('recent-exercises', 'source_scenario_title', 'Source Scenario')}
+      ${_th('recent-exercises', 'status', 'Status')}
+      ${_th('recent-exercises', 'slide_position', 'Progress')}
+      ${_th('recent-exercises', 'participant_count', 'Participants')}
+      ${_th('recent-exercises', 'active_duration_minutes', 'Duration')}
+      ${_th('recent-exercises', 'started_at', 'Started At')}
+      ${_th('recent-exercises', 'completed_at', 'Completed At')}
+      ${_th('recent-exercises', 'created_at', 'Created At')}
+      <th></th>
+    </tr></thead><tbody>
+      ${rows.map(e => html`<tr>
+        <td><strong>${e.title}</strong></td>
+        <td>${e.source_scenario_title || '—'}</td>
+        <td>
+          <span class="badge badge-${e.status}">${formatStatus(e.status)}</span>
+          ${e.archived ? html` <span class="badge badge-archived">Archived</span>` : ''}
+        </td>
+        <td>${fmtProgress(e.slide_position, e.slide_total)}</td>
+        <td>${e.participant_count}</td>
+        <td>${fmtMinutes(e.active_duration_minutes)}</td>
+        <td>${fmtDate(e.started_at)}</td>
+        <td>${fmtDate(e.completed_at)}</td>
+        <td>${fmtDate(e.created_at)}</td>
+        <td><button class="btn btn-secondary btn-sm" @click=${() => loadExerciseDetail(e.id)}>View</button></td>
+      </tr>`)}
+    </tbody></table>`, tbl);
+}
+
+function renderDashboardScenarios() {
+  const tbl = document.getElementById('dashboard-scenarios-table');
+  if (!tbl) return;
+  if (!_dashboardScenarios.length) {
+    render(html`<div class="empty">No scenarios yet. <a href="#" @click=${e => { e.preventDefault(); showPanel('scenarios'); }}>Upload one →</a></div>`, tbl);
+    return;
+  }
+  const rows = _sortRows('dashboard-scenarios', _dashboardScenarios, {
+    module_count: 'number',
+    inject_count: 'number',
+    exercise_count: 'number',
+    created_at: 'date',
+    difficulty: 'difficulty',
+  });
+  render(html`
+    <table><thead><tr>
+      ${_th('dashboard-scenarios', 'title', 'Title')}
+      ${_th('dashboard-scenarios', 'scenario_type', 'Type')}
+      ${_th('dashboard-scenarios', 'framing', 'Framing')}
+      ${_th('dashboard-scenarios', 'difficulty', 'Difficulty')}
+      ${_th('dashboard-scenarios', 'module_count', 'Modules')}
+      ${_th('dashboard-scenarios', 'inject_count', 'Injects')}
+      ${_th('dashboard-scenarios', 'exercise_count', 'Number of Exercises')}
+      ${_th('dashboard-scenarios', 'created_at', 'Created At')}
+      <th></th>
+    </tr></thead><tbody>
+      ${rows.map(s => html`<tr>
+        <td><strong>${s.title}</strong></td>
+        <td>${prettifyTag(s.scenario_type)}</td>
+        <td>${prettifyTag(s.framing)}</td>
+        <td>${prettifyTag(s.difficulty)}</td>
+        <td>${Number(s.module_count)}</td>
+        <td>${Number(s.inject_count)}</td>
+        <td>${Number(s.exercise_count)}</td>
+        <td>${fmtDate(s.created_at)}</td>
+        <td><button class="btn btn-secondary btn-sm" @click=${() => loadScenarioDetail(s.id)}>View</button></td>
+      </tr>`)}
+    </tbody></table>`, tbl);
+}
+
+// ---------- Exercise List ----------
+let _exerciseRows = [];
+async function loadExercises() {
+  const tbl = document.getElementById('exercises-table');
+  render(html`<div class="empty">Loading…</div>`, tbl);
+  try {
+    const includeArchived = document.getElementById('ex-show-archived')?.checked ? 'true' : 'false';
+    const data = await api('/exercises?include_archived=' + includeArchived);
+    _exerciseRows = data.exercises || [];
+    if (!_tableSorts['exercises']) _tableSorts['exercises'] = { field: 'created_at', dir: 'desc' };
+    renderExercisesTable();
+  } catch(e) {
+    render(html`<div class="empty">Error: ${e.message}</div>`, tbl);
+  }
+}
+
+function renderExercisesTable() {
+  const tbl = document.getElementById('exercises-table');
+  if (!_exerciseRows.length) {
+    render(html`<div class="empty">No exercises.</div>`, tbl);
+    return;
+  }
+  const types = {
+    created_at: 'date',
+    started_at: 'date',
+    completed_at: 'date',
+    participant_count: 'number',
+    slide_position: 'number',
+    active_duration_minutes: 'number',
+  };
+  const rows = _sortRows('exercises', _exerciseRows, types);
+  const ids = rows.map(e => e.id);
+  // Drop selections for rows no longer present (e.g. after archive filter changes).
+  const idSet = new Set(ids);
+  _selected.exercises.forEach(id => { if (!idSet.has(id)) _selected.exercises.delete(id); });
+  const bulkButtons = html`
+    <button class="btn btn-secondary btn-sm" @click=${bulkArchiveExercises}>Archive</button>
+    <button class="btn btn-danger btn-sm" @click=${bulkDeleteExercises}>Delete</button>`;
+  render(html`
+    ${_bulkBar('exercises', bulkButtons)}
+    <table><thead><tr>
+      ${_selectAllHeader('exercises', ids)}
+      ${_th('exercises', 'title', 'Title')}
+      ${_th('exercises', 'source_scenario_title', 'Source Scenario')}
+      ${_th('exercises', 'status', 'Status')}
+      ${_th('exercises', 'slide_position', 'Progress')}
+      ${_th('exercises', 'participant_count', 'Participants')}
+      ${_th('exercises', 'active_duration_minutes', 'Duration')}
+      ${_th('exercises', 'started_at', 'Started At')}
+      ${_th('exercises', 'completed_at', 'Completed At')}
+      ${_th('exercises', 'created_at', 'Created At')}
+      <th></th>
+    </tr></thead><tbody>
+      ${rows.map(e => html`<tr>
+        ${_selectionCheckbox('exercises', e.id)}
+        <td><strong>${e.title}</strong></td>
+        <td>${e.source_scenario_title || '—'}</td>
+        <td>
+          <span class="badge badge-${e.status}">${formatStatus(e.status)}</span>
+          ${e.archived ? html` <span class="badge badge-archived">Archived</span>` : ''}
+        </td>
+        <td>${fmtProgress(e.slide_position, e.slide_total)}</td>
+        <td>${e.participant_count}</td>
+        <td>${fmtMinutes(e.active_duration_minutes)}</td>
+        <td>${fmtDate(e.started_at)}</td>
+        <td>${fmtDate(e.completed_at)}</td>
+        <td>${fmtDate(e.created_at)}</td>
+        <td><button class="btn btn-secondary btn-sm" @click=${() => loadExerciseDetail(e.id)}>View →</button></td>
+      </tr>`)}
+    </tbody></table>`, tbl);
+}
+
+// ---------- Exercise Detail ----------
+let currentExercise = null;
+
+async function loadExerciseDetail(id) {
+  showPanel('exercise-detail');
+  render(html`<div class="empty">Loading…</div>`, document.getElementById('detail-content'));
+  render(html``, document.getElementById('detail-actions'));
+  try {
+    const ex = await api('/exercises/' + id);
+    currentExercise = ex;
+    document.getElementById('detail-title').textContent = ex.title;
+    render(html`
+      <span class="badge badge-${ex.status}">${formatStatus(ex.status)}</span>
+      ${ex.archived ? html` <span class="badge badge-archived">Archived</span>` : ''}
+    `, document.getElementById('detail-badge'));
+    renderExerciseActions(ex);
+    renderExerciseContent(ex);
+  } catch(e) {
+    render(html`<div class="empty">Error: ${e.message}</div>`, document.getElementById('detail-content'));
+  }
+}
+
+function renderExerciseActions(ex) {
+  const el = document.getElementById('detail-actions');
+  const refresh = html`<button class="btn btn-secondary btn-sm" @click=${() => loadExerciseDetail(ex.id)}>↻ Refresh</button>`;
+  const archiveBtn = ex.archived
+    ? html`<button class="btn btn-secondary btn-sm" @click=${() => unarchiveExercise(ex.id)}>Unarchive</button>`
+    : html`<button class="btn btn-secondary btn-sm" @click=${() => archiveExercise(ex.id)}>Archive</button>`;
+  const deleteBtn = ex.status === 'in_progress'
+    ? html`<button class="btn btn-danger btn-sm" disabled title="Pause or complete the exercise before deleting">Delete</button>`
+    : html`<button class="btn btn-danger btn-sm" @click=${() => deleteExercise(ex.id, ex.title)}>Delete</button>`;
+
+  let stateTpl;
+  if (ex.status === 'available') {
+    stateTpl = html`<button class="btn btn-primary" @click=${() => launchPresentation(ex.id, true)}>▶ Begin Exercise</button>`;
+  } else if (ex.status === 'in_progress' || ex.status === 'paused') {
+    const pauseBtn = ex.status === 'in_progress'
+      ? html`<button class="btn btn-secondary btn-sm" @click=${() => pauseExercise(ex.id)}>⏸ Pause</button>`
+      : html`<button class="btn btn-primary btn-sm" @click=${() => resumeExercise(ex.id)}>▶ Resume</button>`;
+    stateTpl = html`
+      <button class="btn btn-primary" @click=${() => launchPresentation(ex.id, false)}>↗ Open Presentation</button>
+      ${pauseBtn}`;
+  } else if (ex.status === 'debrief') {
+    stateTpl = html`
+      <button class="btn btn-secondary" @click=${() => openPresenterView(ex.id)}>↗ Open Presentation</button>
+      <button class="btn btn-primary" @click=${() => completeExercise(ex.id)}>Complete Exercise</button>`;
+  } else if (ex.status === 'complete') {
+    stateTpl = html`
+      <button class="btn btn-primary" @click=${() => exportExercise(ex.id)}>⬇ Download Package</button>
+      <button class="btn btn-secondary" @click=${() => openPresenterView(ex.id)}>↗ Open Presentation</button>`;
+  } else {
+    stateTpl = html``;
+  }
+  render(html`${stateTpl} ${archiveBtn} ${deleteBtn} ${refresh}`, el);
+}
+
+function renderSourceScenarioCell(ex) {
+  if (ex.scenario_catalog_id && ex.source_scenario_title) {
+    return html`<a
+      role="link"
+      tabindex="0"
+      style="color:var(--color-accent);cursor:pointer;text-decoration:underline"
+      @click=${() => loadScenarioDetail(ex.scenario_catalog_id)}
+    >${ex.source_scenario_title}</a>`;
+  }
+  return html`—`;
+}
+
+function renderExerciseContent(ex) {
+  const modules = ex.modules || [];
+  const allInjects = modules.flatMap((m, idx) => (m.injects || []).map(inj => ({
+    ...inj,
+    _module: m.module_number || (idx + 1),
+    _moduleIdx: idx,
+  })));
+  const releasedCount = allInjects.filter(i => i.released_at).length;
+  const totalInjects = allInjects.length;
+  const pct = totalInjects ? Math.round(releasedCount / totalInjects * 100) : 0;
+  const ov = ex.exercise_overview || {};
+
+  const isCurrent = (inj) =>
+    ex.current_slide === `inject:${inj._moduleIdx}:${inj.sequence}`;
+
+  const injectCard = (inj) => {
+    const checked = (inj.expected_actions_checked || []).length;
+    const totalActions = (inj.expected_actions || []).length;
+    const revealed = (inj.revealed_questions || []).length;
+    const totalQs = (inj.discussion_questions || []).length;
+    const notes = inj.facilitator_notes || '';
+    const showRuntime = ex.status === 'in_progress' || ex.status === 'paused'
+      || ex.status === 'debrief' || ex.status === 'complete';
+    return html`
+      <div class="inject-card" style=${isCurrent(inj) ? 'border-left:4px solid var(--color-accent);padding-left:12px' : ''}>
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+          <div class="inject-title">Module ${inj._module} · Inject ${inj.sequence}: ${inj.title}</div>
+          ${inj.released_at
+            ? html`<span class="badge badge-in_progress">Released</span>`
+            : html`<span class="badge badge-available">Pending</span>`}
+        </div>
+        <div class="inject-meta">
+          ${inj.released_at ? `Released ${fmtDate(inj.released_at)}` : 'Not yet released'}
+          ${inj.day_or_time ? ` · ${inj.day_or_time}` : ''}
+          ${inj.trigger_source ? ` · Trigger: ${inj.trigger_source}` : ''}
+        </div>
+        <div class="inject-desc">${inj.narrative || ''}</div>
+        ${showRuntime ? html`
+          <div class="inject-runtime" style="margin-top:10px;font-size:12px;color:var(--color-muted);line-height:1.6">
+            <div>Questions revealed: <strong>${revealed} / ${totalQs}</strong></div>
+            <div>Expected actions completed: <strong>${checked} / ${totalActions}</strong></div>
+            ${notes ? html`<div style="margin-top:6px"><strong>Facilitator notes:</strong> ${notes}</div>` : ''}
+          </div>` : ''}
+      </div>`;
+  };
+
+  render(html`
+    <div class="grid-2" style="margin-bottom:20px">
+      <div class="card">
+        <h3>Exercise Info</h3>
+        <table class="info-table" style="margin-top:8px;width:100%">
+          <tr><td>Scenario Type</td><td><code>${ex.scenario_type}</code></td></tr>
+          <tr><td>Source Scenario</td><td>${renderSourceScenarioCell(ex)}</td></tr>
+          <tr><td>Created</td><td>${fmtDate(ex.created_at)}</td></tr>
+          ${ex.started_at ? html`<tr><td>Started</td><td>${fmtDate(ex.started_at)}</td></tr>` : ''}
+          ${ex.debrief_started_at ? html`<tr><td>Debrief Started</td><td>${fmtDate(ex.debrief_started_at)}</td></tr>` : ''}
+          ${ex.completed_at ? html`<tr><td>Completed</td><td>${fmtDate(ex.completed_at)}</td></tr>` : ''}
+          ${ex.archived ? html`<tr><td>Archived</td><td>${fmtDate(ex.archived_at)}</td></tr>` : ''}
+        </table>
+      </div>
+      <div class="card">
+        <h3>Progress</h3>
+        <div style="font-size:28px;font-weight:700;margin:8px 0">${releasedCount} / ${totalInjects}</div>
+        <div style="font-size:12px;color:var(--color-muted);margin-bottom:8px">injects released · ${(ex.participants||[]).length} participants</div>
+        <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+        <div style="font-size:12px;color:var(--color-muted);margin-top:6px">${pct}% complete</div>
+        ${ex.current_slide ? html`
+          <div style="margin-top:10px;font-size:12px;color:var(--color-text)">
+            <strong>Current slide:</strong> <code>${ex.current_slide}</code>
+          </div>` : ''}
+      </div>
+    </div>
+
+    ${ex.metrics ? html`
+    <div class="section">
+      <div class="section-title">Timing</div>
+      <div class="card">
+        <table class="info-table" style="width:100%">
+          <tr><td>Active Duration</td><td>${ex.metrics.active_duration_minutes ?? '—'} min</td></tr>
+          <tr><td>Paused Duration</td><td>${ex.metrics.paused_duration_minutes ?? 0} min</td></tr>
+          <tr><td>Debrief Duration</td><td>${ex.metrics.debrief_duration_minutes ?? '—'} min</td></tr>
+          <tr><td>Total Duration</td><td>${ex.metrics.total_duration_minutes ?? '—'} min</td></tr>
+        </table>
+      </div>
+    </div>` : ''}
+
+    ${ov.summary || ov.purpose ? html`
+    <div class="section">
+      <div class="section-title">Exercise Overview</div>
+      <div class="card" style="font-size:14px;line-height:1.7">
+        ${ov.purpose ? html`<p><strong>Purpose:</strong> ${ov.purpose}</p>` : ''}
+        ${ov.summary ? html`<p>${ov.summary}</p>` : ''}
+      </div>
+    </div>` : ''}
+
+    ${totalInjects ? html`
+    <div class="section">
+      <div class="section-title">Injects (${totalInjects})</div>
+      ${allInjects.map(injectCard)}
+    </div>` : ''}
+
+    <div class="section">
+      <div class="section-title">Participants (${(ex.participants||[]).length})</div>
+      <div class="card table-wrap" id="participants-table"></div>
+    </div>
+
+    ${(ex.status === 'debrief' || ex.status === 'complete') ? html`
+    <div class="section">
+      <div class="section-title">Debrief Notes</div>
+      <div class="card">
+        <div class="form-row">
+          <label>Summary</label>
+          <textarea id="debrief-summary" rows="5">${ex.debrief_summary || ''}</textarea>
+        </div>
+        <label style="font-weight:600;font-size:13px;margin-top:8px;display:block">Follow-up Actions</label>
+        <div id="followup-container">
+          ${(ex.follow_up_actions || []).map(fu => html`
+            <div class="followup-row" style="display:flex;gap:8px;margin-bottom:8px">
+              <input type="text" placeholder="Owner" class="fu-owner" .value=${fu.owner || ''} style="flex:1" />
+              <input type="text" placeholder="Action item" class="fu-action" .value=${fu.action || ''} style="flex:3" />
+              <button type="button" class="btn btn-secondary btn-sm" @click=${e => e.target.closest('.followup-row').remove()}>✕</button>
+            </div>`)}
+        </div>
+        <button class="btn btn-secondary btn-sm" @click=${addFollowupRow} style="margin-top:4px">+ Add Action</button>
+        <div style="margin-top:12px">
+          <button class="btn btn-primary" @click=${saveDebrief}>Save Debrief</button>
+        </div>
+      </div>
+    </div>` : ''}
+  `, document.getElementById('detail-content'));
+
+  if (!_tableSorts['participants']) _tableSorts['participants'] = { field: 'name', dir: 'asc' };
+  renderParticipantsTable();
+}
+
+function renderParticipantsTable() {
+  const tbl = document.getElementById('participants-table');
+  if (!tbl) return;
+  const ps = (currentExercise && currentExercise.participants) || [];
+  if (!ps.length) {
+    render(html`<div class="empty">No participants.</div>`, tbl);
+    return;
+  }
+  const rows = _sortRows('participants', ps);
+  render(html`
+    <table><thead><tr>
+      ${_th('participants', 'name', 'Name')}
+      ${_th('participants', 'position', 'Position')}
+      ${_th('participants', 'exercise_role', 'Exercise Role')}
+      ${_th('participants', 'department', 'Department')}
+    </tr></thead><tbody>
+      ${rows.map(p => html`<tr>
+        <td>${p.name}</td>
+        <td>${p.position}</td>
+        <td>${p.exercise_role}</td>
+        <td>${p.department}</td>
+      </tr>`)}
+    </tbody></table>`, tbl);
+}
+
+// ---------- Exercise Actions ----------
+// Reopen just the presenter view for read-only review. Used after the
+// exercise has finished (debrief/complete); the facilitator window is
+// not opened because navigation is no longer permitted.
+function openPresenterView(id) {
+  window.open('/present.html#' + id, '_blank', 'noopener');
+}
+
+async function launchPresentation(id, callStart) {
+  // Open windows BEFORE any await so the user-gesture grant isn't consumed
+  // by the API call. The presenter/facilitator pages handle current_slide=null
+  // gracefully (waiting state) while /start completes.
+  window.open('/facilitate.html#' + id, '_blank', 'noopener');
+  window.open('/present.html#' + id, '_blank', 'noopener');
+  try {
+    if (callStart) {
+      await api('/exercises/' + id + '/start', { method: 'POST' });
+    }
+    loadExerciseDetail(id);
+    toast('Exercise started.');
+  } catch (e) {
+    alert('Error: ' + e.message);
+  }
+}
+
+async function exportExercise(id) {
+  try {
+    const data = await api('/exercises/' + id + '/export', { method: 'POST' });
+    toast('Saved to ./' + data.path);
+  } catch(e) { alert('Error: ' + e.message); }
+}
+
+async function pauseExercise(id) {
+  try {
+    await api('/exercises/' + id + '/pause', { method: 'POST' });
+    toast('Exercise paused.');
+    loadExerciseDetail(id);
+  } catch(e) { alert('Error: ' + e.message); }
+}
+
+async function resumeExercise(id) {
+  try {
+    await api('/exercises/' + id + '/resume', { method: 'POST' });
+    toast('Exercise resumed.');
+    loadExerciseDetail(id);
+  } catch(e) { alert('Error: ' + e.message); }
+}
+
+async function completeExercise(id) {
+  if (!await confirmAction({
+    title: 'Complete exercise',
+    message: 'Mark this exercise as complete? You will still be able to review it and download the package.',
+    confirmLabel: 'Complete', danger: false,
+  })) return;
+  try {
+    await api('/exercises/' + id + '/complete', { method: 'POST' });
+    loadExerciseDetail(id);
+    toast('Exercise marked complete.');
+  } catch(e) { alert('Error: ' + e.message); }
+}
+
+// ---------- Archive / Debrief ----------
+async function archiveExercise(id) {
+  if (!await confirmAction({
+    title: 'Archive exercise',
+    message: 'Archive this exercise? It will be hidden from the list but can be unarchived later.',
+    confirmLabel: 'Archive', danger: false,
+  })) return;
+  try {
+    await api('/exercises/' + id + '/archive', { method: 'POST' });
+    toast('Exercise archived.');
+    loadExerciseDetail(id);
+  } catch(e) { alert('Error: ' + e.message); }
+}
+
+// Per-exercise delete from the detail view.
+async function deleteExercise(id, title) {
+  const ok = await confirmAction({
+    title: 'Delete exercise',
+    message: 'Permanently delete "' + (title || 'this exercise') + '"? This hard-deletes the '
+      + 'exercise and all of its runtime data — released injects, facilitator notes, and debrief. '
+      + 'It cannot be undone. Archive instead if you only want to hide it from the list.',
+    confirmLabel: 'Delete Exercise',
+  });
+  if (!ok) return;
+  try {
+    await api('/exercises/' + id, { method: 'DELETE' });
+    toast('Exercise deleted.');
+    showPanel('exercises');
+    await loadExercises();
+  } catch(e) { alert('Error: ' + e.message); }
+}
+
+async function unarchiveExercise(id) {
+  try {
+    await api('/exercises/' + id + '/unarchive', { method: 'POST' });
+    toast('Exercise unarchived.');
+    loadExerciseDetail(id);
+  } catch(e) { alert('Error: ' + e.message); }
+}
+
+async function bulkArchiveExercises() {
+  const ids = Array.from(_selected.exercises);
+  if (!ids.length) return;
+  if (!await confirmAction({
+    title: 'Archive exercises',
+    message: 'Archive ' + ids.length + ' exercise' + (ids.length === 1 ? '' : 's')
+      + '? They will be hidden from the list but can be unarchived later.',
+    confirmLabel: 'Archive', danger: false,
+  })) return;
+  const results = await Promise.allSettled(
+    ids.map(id => api('/exercises/' + id + '/archive', { method: 'POST' }))
+  );
+  const failed = results.filter(r => r.status === 'rejected').length;
+  _selected.exercises.clear();
+  await loadExercises();
+  if (failed) toast(failed + ' failed; ' + (ids.length - failed) + ' archived.');
+  else toast('Archived ' + ids.length + ' exercise' + (ids.length === 1 ? '' : 's') + '.');
+}
+
+async function bulkDeleteExercises() {
+  const ids = Array.from(_selected.exercises);
+  if (!ids.length) return;
+  if (!await confirmAction({
+    title: 'Delete exercises',
+    message: 'Delete ' + ids.length + ' exercise' + (ids.length === 1 ? '' : 's')
+      + '? This hard-deletes them and cannot be undone.',
+    confirmLabel: 'Delete',
+  })) return;
+  const results = await Promise.allSettled(
+    ids.map(id => api('/exercises/' + id, { method: 'DELETE' }))
+  );
+  const failed = results.filter(r => r.status === 'rejected').length;
+  _selected.exercises.clear();
+  await loadExercises();
+  if (failed) toast(failed + ' failed; ' + (ids.length - failed) + ' deleted.');
+  else toast('Deleted ' + ids.length + ' exercise' + (ids.length === 1 ? '' : 's') + '.');
+}
+
+async function bulkDeleteScenarios() {
+  const ids = Array.from(_selected.scenarios);
+  if (!ids.length) return;
+  if (!await confirmAction({
+    title: 'Delete scenarios',
+    message: 'Delete ' + ids.length + ' scenario' + (ids.length === 1 ? '' : 's')
+      + ' from the library? This cannot be undone.',
+    confirmLabel: 'Delete',
+  })) return;
+  const results = await Promise.allSettled(
+    ids.map(id => api('/scenarios/' + encodeURIComponent(id), { method: 'DELETE' }))
+  );
+  const failed = results.filter(r => r.status === 'rejected').length;
+  _selected.scenarios.clear();
+  await loadScenarios();
+  if (failed) toast(failed + ' failed; ' + (ids.length - failed) + ' deleted.');
+  else toast('Deleted ' + ids.length + ' scenario' + (ids.length === 1 ? '' : 's') + '.');
+}
+
+async function saveDebrief() {
+  if (!currentExercise) return;
+  const summary = document.getElementById('debrief-summary').value;
+  const actionRows = document.querySelectorAll('.followup-row');
+  const follow_up_actions = [];
+  actionRows.forEach(row => {
+    const owner = row.querySelector('.fu-owner').value.trim();
+    const action = row.querySelector('.fu-action').value.trim();
+    if (owner || action) follow_up_actions.push({ owner, action });
+  });
+  try {
+    await api('/exercises/' + currentExercise.id + '/debrief', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ debrief_summary: summary, follow_up_actions })
+    });
+    toast('Debrief saved.');
+  } catch(e) { alert('Error: ' + e.message); }
+}
+
+function addFollowupRow() {
+  const c = document.getElementById('followup-container');
+  const row = document.createElement('div');
+  row.className = 'followup-row';
+  row.style.cssText = 'display:flex;gap:8px;margin-bottom:8px';
+  const owner = document.createElement('input');
+  owner.type = 'text'; owner.placeholder = 'Owner'; owner.className = 'fu-owner'; owner.style.flex = '1';
+  const action = document.createElement('input');
+  action.type = 'text'; action.placeholder = 'Action item'; action.className = 'fu-action'; action.style.flex = '3';
+  const rm = document.createElement('button');
+  rm.type = 'button'; rm.className = 'btn btn-secondary btn-sm'; rm.textContent = '✕';
+  rm.addEventListener('click', () => row.remove());
+  row.appendChild(owner); row.appendChild(action); row.appendChild(rm);
+  c.appendChild(row);
+}
+
+// ---------- Create Exercise ----------
+function addParticipant() {
+  const c = document.getElementById('participants-container');
+  const div = document.createElement('div');
+  div.className = 'participant-row';
+  render(html`
+    <input type="text" placeholder="Full Name" class="p-name" />
+    <input type="text" placeholder="Position (e.g. CISO)" class="p-position" />
+    <select class="p-exercise-role">
+      <option value="">Exercise Role…</option>
+      <option value="Facilitator">Facilitator</option>
+      <option value="Participant">Participant</option>
+      <option value="Observer">Observer</option>
+    </select>
+    <input type="text" placeholder="Department" class="p-department" />
+    <button class="btn btn-secondary btn-sm" @click=${e => removeParticipant(e.target)}>✕</button>
+  `, div);
+  c.appendChild(div);
+}
+
+function removeParticipant(btn) {
+  if (document.querySelectorAll('.participant-row').length <= 1) {
+    alert('At least one participant is required.'); return;
+  }
+  btn.closest('.participant-row').remove();
+}
+
+async function loadScenarioCatalogOptions() {
+  const sel = document.getElementById('ex-scenario-catalog');
+  if (!sel) return;
+  try {
+    const data = await api('/scenarios');
+    const rows = data.scenarios || [];
+    while (sel.firstChild) sel.removeChild(sel.firstChild);
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = 'Select a scenario template…';
+    sel.appendChild(placeholder);
+    for (const s of rows) {
+      const opt = document.createElement('option');
+      opt.value = s.id;
+      opt.textContent = (s.title || s.scenario_id) + ' (' + s.scenario_id + ')';
+      sel.appendChild(opt);
+    }
+  } catch (e) {
+    console.warn('Failed to load scenario catalog:', e.message);
+  }
+}
+
+async function createExercise() {
+  const title = document.getElementById('ex-title').value.trim();
+  const catalogSel = document.getElementById('ex-scenario-catalog');
+  const catalogId = catalogSel.value || null;
+  const alertEl = document.getElementById('create-alert');
+  render(html``, alertEl);
+
+  if (!title) {
+    render(html`<div class="alert alert-error">Please enter an exercise title.</div>`, alertEl);
+    return;
+  }
+  if (!catalogId) {
+    render(html`<div class="alert alert-error">Please select a scenario template.</div>`, alertEl);
+    return;
+  }
+  const participants = [];
+  document.querySelectorAll('.participant-row').forEach(row => {
+    const name = row.querySelector('.p-name').value.trim();
+    const position = row.querySelector('.p-position').value.trim();
+    const exercise_role = row.querySelector('.p-exercise-role').value;
+    const department = row.querySelector('.p-department').value.trim();
+    if (name && position && exercise_role && department) {
+      participants.push({ name, position, exercise_role, department });
+    }
+  });
+  if (!participants.length) {
+    render(html`<div class="alert alert-error">Add at least one participant with full name, position, exercise role, and department.</div>`, alertEl);
+    return;
+  }
+
+  const btn = document.getElementById('create-btn');
+  btn.disabled = true;
+  render(html`<span class="spinner"></span> Creating…`, btn);
+  try {
+    const resp = await api('/exercises', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title,
+        scenario_catalog_id: catalogId,
+        participants,
+      })
+    });
+    render(html`<div class="alert alert-success">Exercise created — redirecting…</div>`, alertEl);
+    setTimeout(() => loadExerciseDetail(resp.exercise_id), 1500);
+  } catch(e) {
+    render(html`<div class="alert alert-error">Error: ${e.message}</div>`, alertEl);
+    btn.disabled = false; btn.textContent = 'Create Exercise';
+  }
+}
+
+// ---------- Scenarios ----------
+function showScenarioUploadAlert(msg, type) {
+  type = type || 'success';
+  const node = document.getElementById('scenario-upload-alert');
+  render(html`<div class="alert alert-${type}">${msg}</div>`, node);
+  setTimeout(() => render(html``, node), 6000);
+}
+
+async function uploadScenario() {
+  const fileInput = document.getElementById('scenario-file');
+  if (!fileInput.files.length) { showScenarioUploadAlert('Select at least one JSON file first.', 'error'); return; }
+
+  const fd = new FormData();
+  for (const f of fileInput.files) fd.append('files', f);
+
+  const btn = document.getElementById('scenario-upload-btn');
+  btn.disabled = true; btn.textContent = 'Uploading…';
+  try {
+    const r = await fetch(API + '/scenarios', { method: 'POST', body: fd });
+    if (!r.ok) {
+      const e = await r.json().catch(function () { return { detail: r.statusText }; });
+      const d = e.detail;
+      const msg = typeof d === 'string' ? d :
+        Array.isArray(d) ? d.map(x => (x && x.msg) ? `${(x.loc||[]).join('.')}: ${x.msg}` : JSON.stringify(x)).join('; ') :
+        JSON.stringify(d);
+      throw new Error(msg);
+    }
+    const report = await r.json();
+    const failures = report.results.filter(x => x.status === 'failed');
+    const summary = `Uploaded ${report.uploaded}` + (report.failed ? `, ${report.failed} failed` : '') + '.';
+    const node = document.getElementById('scenario-upload-alert');
+    render(html`<div class="alert alert-${report.failed ? 'error' : 'success'}">
+      <div>${summary}</div>
+      ${failures.length ? html`<ul style="margin:6px 0 0;padding-left:18px">
+        ${failures.map(f => html`<li>${f.filename}: ${f.error}</li>`)}
+      </ul>` : html``}
+    </div>`, node);
+    setTimeout(() => render(html``, node), failures.length ? 12000 : 6000);
+    fileInput.value = '';
+    loadScenarios();
+  } catch(e) {
+    showScenarioUploadAlert('Error: ' + e.message, 'error');
+  }
+  btn.disabled = false; btn.textContent = 'Upload';
+}
+
+
+const _DIFFICULTY_RANK = { low: 1, medium: 2, high: 3 };
+let _scenarioRows = [];
+let _scenarioSort = { field: 'created_at', dir: 'desc' };
+
+// Editor state (v1.5)
+let editingId = null;
+let editingScenario = null;
+let editingOriginalJSON = '';
+
+// ---- Editor: constants ----
+const SCENARIO_TYPES = [
+  'ransomware','insider_threat','supply_chain','account_takeover','business_email_compromise',
+  'cloud_compromise','credential_theft','data_exfiltration','privileged_access_abuse','apt_espionage',
+  'detection_bypass','third_party_breach','denial_of_service','vendor_responsibility','zero_day_exploit',
+  'phishing_campaign','mfa_bypass','data_destruction','extortion','iam_misconfiguration'
+];
+const DIFFICULTIES = ['low','medium','high'];
+const FRAMINGS = ['internal','vendor-responsibility'];
+const NIST_CSF_FUNCTIONS = ['Govern','Identify','Protect','Detect','Respond','Recover'];
+const DISCUSSION_CATEGORIES = [
+  'Cyber Resilience','Accounts & Privileges','Incident Identification','Incident Response','Recovery',
+  'Training & Exercises','Senior Leaders','Public Information','Legal','Product Security',
+  'Communications','Detection','Triage','Containment','Eradication','Post-incident'
+];
+
+// ---- Editor: rendering primitives ----
+// All return lit-html templates. User values flow through @input/@change
+// closures into setField; lit-html auto-escapes interpolations.
+
+function renderTextInput(label, path, value, opts) {
+  opts = opts || {};
+  return html`<div class="form-row">
+    <label>${label}</label>
+    <input type="text" .value=${value || ''} placeholder=${opts.placeholder || ''}
+      @change=${e => setField(path, e.target.value)} />
+  </div>`;
+}
+
+function renderTextarea(label, path, value, opts) {
+  opts = opts || {};
+  const rows = opts.rows || 3;
+  return html`<div class="form-row">
+    <label>${label}</label>
+    <textarea rows=${rows} .value=${value || ''}
+      @input=${e => setField(path, e.target.value)}></textarea>
+  </div>`;
+}
+
+function renderSelect(label, path, value, choices, opts) {
+  opts = opts || {};
+  const allowEmpty = opts.allowEmpty !== false;
+  return html`<div class="form-row">
+    <label>${label}</label>
+    <select .value=${value || ''} @change=${e => setField(path, e.target.value)}>
+      ${allowEmpty ? html`<option value="">\u2014</option>` : ''}
+      ${choices.map(c => html`<option value=${c} ?selected=${c === value}>${c}</option>`)}
+    </select>
+  </div>`;
+}
+
+// ---- Editor: list primitives ----
+
+function getList(path) {
+  const parts = path.split('.');
+  let obj = editingScenario;
+  for (let i = 0; i < parts.length; i++) {
+    if (obj == null) return [];
+    obj = obj[parts[i]];
+  }
+  return Array.isArray(obj) ? obj : [];
+}
+
+function setList(path, arr) { setField(path, arr); }
+
+function addStringItem(path) {
+  const arr = getList(path).slice();
+  arr.push('');
+  setList(path, arr);
+  rerenderEditor();
+}
+
+function removeListItem(path, idx) {
+  const arr = getList(path).slice();
+  arr.splice(idx, 1);
+  setList(path, arr);
+  rerenderEditor();
+}
+
+function setListItem(path, idx, value) {
+  // Scalar in-place edit — no re-render.
+  const arr = getList(path);
+  arr[idx] = value;
+}
+
+// ---- Editor: module ops ----
+function setModuleField(mi, field, value) {
+  if (!editingScenario || !editingScenario.modules || !editingScenario.modules[mi]) return;
+  if (field === 'duration_minutes') value = value === '' ? null : Number(value);
+  editingScenario.modules[mi][field] = value;
+}
+
+function addModule() {
+  if (!Array.isArray(editingScenario.modules)) editingScenario.modules = [];
+  editingScenario.modules.push({
+    number: editingScenario.modules.length + 1,
+    title: '',
+    duration_minutes: 60,
+    summary: '',
+    injects: [],
+  });
+  rerenderEditor();
+}
+
+async function removeModule(mi) {
+  if (!editingScenario.modules) return;
+  if (!await confirmAction({
+    title: 'Remove module',
+    message: 'Remove module ' + (mi + 1) + '?',
+    confirmLabel: 'Remove',
+  })) return;
+  editingScenario.modules.splice(mi, 1);
+  for (let i = 0; i < editingScenario.modules.length; i++) {
+    editingScenario.modules[i].number = i + 1;
+  }
+  rerenderEditor();
+}
+
+function moveModule(mi, delta) {
+  if (!editingScenario.modules) return;
+  const ni = mi + delta;
+  if (ni < 0 || ni >= editingScenario.modules.length) return;
+  const arr = editingScenario.modules;
+  const tmp = arr[mi]; arr[mi] = arr[ni]; arr[ni] = tmp;
+  for (let i = 0; i < arr.length; i++) arr[i].number = i + 1;
+  rerenderEditor();
+}
+
+// ---- Editor: inject ops ----
+function _injectsList(mi) {
+  const m = editingScenario && editingScenario.modules && editingScenario.modules[mi];
+  if (!m) return null;
+  if (!Array.isArray(m.injects)) m.injects = [];
+  return m.injects;
+}
+
+function setInjectField(mi, ii, field, value) {
+  const arr = _injectsList(mi);
+  if (!arr || !arr[ii]) return;
+  arr[ii][field] = value;
+}
+
+function addInject(mi) {
+  const arr = _injectsList(mi);
+  if (!arr) return;
+  arr.push({
+    sequence: arr.length + 1,
+    day_or_time: '',
+    trigger_source: '',
+    trigger_condition: '',
+    title: '',
+    narrative: '',
+    indicators: [],
+    expected_actions: [],
+    discussion_questions: [],
+  });
+  rerenderEditor();
+}
+
+async function removeInject(mi, ii) {
+  const arr = _injectsList(mi);
+  if (!arr) return;
+  if (!await confirmAction({
+    title: 'Remove inject',
+    message: 'Remove inject ' + (ii + 1) + ' from module ' + (mi + 1) + '?',
+    confirmLabel: 'Remove',
+  })) return;
+  arr.splice(ii, 1);
+  for (let i = 0; i < arr.length; i++) arr[i].sequence = i + 1;
+  rerenderEditor();
+}
+
+function moveInject(mi, ii, delta) {
+  const arr = _injectsList(mi);
+  if (!arr) return;
+  const ni = ii + delta;
+  if (ni < 0 || ni >= arr.length) return;
+  const tmp = arr[ii]; arr[ii] = arr[ni]; arr[ni] = tmp;
+  for (let i = 0; i < arr.length; i++) arr[i].sequence = i + 1;
+  rerenderEditor();
+}
+
+function _injectStringList(mi, ii, field) {
+  const arr = _injectsList(mi);
+  if (!arr || !arr[ii]) return null;
+  if (!Array.isArray(arr[ii][field])) arr[ii][field] = [];
+  return arr[ii][field];
+}
+
+function setInjectStringItem(mi, ii, field, idx, value) {
+  const lst = _injectStringList(mi, ii, field);
+  if (!lst) return;
+  lst[idx] = value;
+}
+
+function addInjectStringItem(mi, ii, field) {
+  const lst = _injectStringList(mi, ii, field);
+  if (!lst) return;
+  lst.push('');
+  rerenderEditor();
+}
+
+function removeInjectStringItem(mi, ii, field, idx) {
+  const lst = _injectStringList(mi, ii, field);
+  if (!lst) return;
+  lst.splice(idx, 1);
+  rerenderEditor();
+}
+
+// ---- Editor: discussion question ops ----
+function _questionsList(mi, ii) {
+  const arr = _injectsList(mi);
+  if (!arr || !arr[ii]) return null;
+  if (!Array.isArray(arr[ii].discussion_questions)) arr[ii].discussion_questions = [];
+  return arr[ii].discussion_questions;
+}
+
+function setQuestionField(mi, ii, qi, field, value) {
+  const lst = _questionsList(mi, ii);
+  if (!lst || !lst[qi]) return;
+  lst[qi][field] = value;
+}
+
+function addQuestion(mi, ii) {
+  const lst = _questionsList(mi, ii);
+  if (!lst) return;
+  lst.push({ category: '', nist_csf_function: '', question: '', follow_ups: [] });
+  rerenderEditor();
+}
+
+async function removeQuestion(mi, ii, qi) {
+  const lst = _questionsList(mi, ii);
+  if (!lst) return;
+  if (!await confirmAction({
+    title: 'Remove question',
+    message: 'Remove discussion question ' + (qi + 1) + '?',
+    confirmLabel: 'Remove',
+  })) return;
+  lst.splice(qi, 1);
+  rerenderEditor();
+}
+
+function _followUpsList(mi, ii, qi) {
+  const lst = _questionsList(mi, ii);
+  if (!lst || !lst[qi]) return null;
+  if (!Array.isArray(lst[qi].follow_ups)) lst[qi].follow_ups = [];
+  return lst[qi].follow_ups;
+}
+
+function setFollowUpItem(mi, ii, qi, fi, value) {
+  const lst = _followUpsList(mi, ii, qi);
+  if (!lst) return;
+  lst[fi] = value;
+}
+
+function addFollowUp(mi, ii, qi) {
+  const lst = _followUpsList(mi, ii, qi);
+  if (!lst) return;
+  lst.push('');
+  rerenderEditor();
+}
+
+function removeFollowUp(mi, ii, qi, fi) {
+  const lst = _followUpsList(mi, ii, qi);
+  if (!lst) return;
+  lst.splice(fi, 1);
+  rerenderEditor();
+}
+
+// ---- Editor: additional discussion questions (keyed by category) ----
+function _adq() {
+  if (!editingScenario.appendices || typeof editingScenario.appendices !== 'object') editingScenario.appendices = {};
+  if (!editingScenario.appendices.additional_discussion_questions ||
+      typeof editingScenario.appendices.additional_discussion_questions !== 'object') {
+    editingScenario.appendices.additional_discussion_questions = {};
+  }
+  return editingScenario.appendices.additional_discussion_questions;
+}
+
+function _adqCategoryList(cat) {
+  const obj = _adq();
+  if (!Array.isArray(obj[cat])) obj[cat] = [];
+  return obj[cat];
+}
+
+function addAdqCategory() {
+  const obj = _adq();
+  let chosen = null;
+  for (let i = 0; i < DISCUSSION_CATEGORIES.length; i++) {
+    if (!(DISCUSSION_CATEGORIES[i] in obj)) { chosen = DISCUSSION_CATEGORIES[i]; break; }
+  }
+  if (!chosen) { alert('All standard categories are already present.'); return; }
+  obj[chosen] = [];
+  rerenderEditor();
+}
+
+async function removeAdqCategory(cat) {
+  const obj = _adq();
+  if (!(cat in obj)) return;
+  const qcount = (obj[cat] || []).length;
+  if (qcount > 0 && !await confirmAction({
+    title: 'Remove category',
+    message: 'Remove category "' + cat + '" and its ' + qcount + ' question(s)?',
+    confirmLabel: 'Remove',
+  })) return;
+  delete obj[cat];
+  rerenderEditor();
+}
+
+function setAdqCategory(oldCat, newCat) {
+  if (oldCat === newCat) return;
+  const obj = _adq();
+  if (newCat in obj) {
+    alert('Category "' + newCat + '" already exists. Pick a different one or remove the existing first.');
+    rerenderEditor();
+    return;
+  }
+  obj[newCat] = obj[oldCat] || [];
+  delete obj[oldCat];
+  rerenderEditor();
+}
+
+function addAdqQuestion(cat) {
+  _adqCategoryList(cat).push({ nist_csf_function: '', question: '', follow_ups: [] });
+  rerenderEditor();
+}
+
+async function removeAdqQuestion(cat, qi) {
+  const lst = _adqCategoryList(cat);
+  if (!await confirmAction({
+    title: 'Remove question',
+    message: 'Remove question ' + (qi + 1) + ' from "' + cat + '"?',
+    confirmLabel: 'Remove',
+  })) return;
+  lst.splice(qi, 1);
+  rerenderEditor();
+}
+
+function setAdqQuestionField(cat, qi, field, value) {
+  const lst = _adqCategoryList(cat);
+  if (!lst[qi]) return;
+  lst[qi][field] = value;
+}
+
+function _adqFollowUps(cat, qi) {
+  const lst = _adqCategoryList(cat);
+  if (!lst[qi]) return null;
+  if (!Array.isArray(lst[qi].follow_ups)) lst[qi].follow_ups = [];
+  return lst[qi].follow_ups;
+}
+
+function setAdqFollowUp(cat, qi, fi, value) {
+  const f = _adqFollowUps(cat, qi); if (!f) return; f[fi] = value;
+}
+function addAdqFollowUp(cat, qi) {
+  const f = _adqFollowUps(cat, qi); if (!f) return; f.push(''); rerenderEditor();
+}
+function removeAdqFollowUp(cat, qi, fi) {
+  const f = _adqFollowUps(cat, qi); if (!f) return; f.splice(fi, 1); rerenderEditor();
+}
+
+
+
+
+
+
+function renderStringList(label, path) {
+  const items = getList(path);
+  return html`<div class="form-row">
+    <label>${label}</label>
+    ${!items.length ? html`<div style="font-size:12px;color:var(--color-muted);margin-bottom:6px">(no items)</div>` : ''}
+    ${items.map((item, i) => html`<div style="display:flex;gap:6px;margin-bottom:4px">
+      <input type="text" style="flex:1" .value=${item || ''}
+        @input=${e => setListItem(path, i, e.target.value)} />
+      <button class="btn btn-secondary btn-sm" type="button" @click=${() => removeListItem(path, i)}>Remove</button>
+    </div>`)}
+    <button class="btn btn-secondary btn-sm" type="button" @click=${() => addStringItem(path)}>+ Add</button>
+  </div>`;
+}
+
+
+function clone(obj) { return JSON.parse(JSON.stringify(obj)); }
+
+function setField(path, value) {
+  if (!editingScenario) return;
+  const parts = path.split('.');
+  if (parts.some(p => p === '__proto__' || p === 'constructor' || p === 'prototype')) return;
+  let obj = editingScenario;
+  for (let i = 0; i < parts.length - 1; i++) {
+    const p = parts[i];
+    if (obj[p] == null || typeof obj[p] !== 'object') obj[p] = {};
+    obj = obj[p];
+  }
+  obj[parts[parts.length - 1]] = value;
+}
+
+
+function _scenarioSortValue(row, field) {
+  if (field === 'difficulty') return _DIFFICULTY_RANK[(row.difficulty || '').toLowerCase()] || 0;
+  if (field === 'module_count' || field === 'inject_count' || field === 'exercise_count') {
+    return Number(row[field]) || 0;
+  }
+  return (row[field] || '').toString().toLowerCase();
+}
+
+function _scenarioSortArrow(field) {
+  if (_scenarioSort.field !== field) return '';
+  return _scenarioSort.dir === 'asc' ? ' ▲' : ' ▼';
+}
+
+function sortScenarios(field) {
+  if (_scenarioSort.field === field) {
+    _scenarioSort.dir = _scenarioSort.dir === 'asc' ? 'desc' : 'asc';
+  } else {
+    _scenarioSort.field = field;
+    const numericDescDefault = ['created_at', 'module_count', 'inject_count', 'exercise_count'];
+    _scenarioSort.dir = numericDescDefault.includes(field) ? 'desc' : 'asc';
+  }
+  renderScenariosTable();
+}
+
+function renderScenariosTable() {
+  const tbl = document.getElementById('scenarios-table');
+  if (!_scenarioRows.length) {
+    render(html`<div class="empty">No scenarios uploaded yet.</div>`, tbl);
+    return;
+  }
+  const rows = _scenarioRows.slice().sort(function (a, b) {
+    const av = _scenarioSortValue(a, _scenarioSort.field);
+    const bv = _scenarioSortValue(b, _scenarioSort.field);
+    if (av < bv) return _scenarioSort.dir === 'asc' ? -1 : 1;
+    if (av > bv) return _scenarioSort.dir === 'asc' ? 1 : -1;
+    return 0;
+  });
+  const ids = rows.map(s => s.id);
+  const idSet = new Set(ids);
+  _selected.scenarios.forEach(id => { if (!idSet.has(id)) _selected.scenarios.delete(id); });
+  const th = (field, label) => html`<th style="cursor:pointer;user-select:none" @click=${() => sortScenarios(field)}>${label}${_scenarioSortArrow(field)}</th>`;
+  const bulkButtons = html`
+    <button class="btn btn-danger btn-sm" @click=${bulkDeleteScenarios}>Delete</button>`;
+  render(html`
+    ${_bulkBar('scenarios', bulkButtons)}
+    <table><thead><tr>
+      ${_selectAllHeader('scenarios', ids)}
+      ${th('title', 'Title')}
+      ${th('scenario_type', 'Type')}
+      ${th('framing', 'Framing')}
+      ${th('difficulty', 'Difficulty')}
+      ${th('module_count', 'Modules')}
+      ${th('inject_count', 'Injects')}
+      ${th('exercise_count', 'Number of Exercises')}
+      ${th('created_at', 'Created At')}
+      <th></th>
+    </tr></thead><tbody>
+      ${rows.map(s => html`<tr>
+        ${_selectionCheckbox('scenarios', s.id)}
+        <td><strong>${s.title}</strong></td>
+        <td>${prettifyTag(s.scenario_type)}</td>
+        <td>${prettifyTag(s.framing)}</td>
+        <td>${prettifyTag(s.difficulty)}</td>
+        <td>${Number(s.module_count)}</td>
+        <td>${Number(s.inject_count)}</td>
+        <td>${Number(s.exercise_count)}</td>
+        <td>${fmtDate(s.created_at)}</td>
+        <td><button class="btn btn-secondary btn-sm" @click=${() => loadScenarioDetail(s.id)}>View</button></td>
+      </tr>`)}
+    </tbody></table>`, tbl);
+}
+
+async function loadScenarios() {
+  const tbl = document.getElementById('scenarios-table');
+  render(html`<div class="empty">Loading…</div>`, tbl);
+  try {
+    const data = await api('/scenarios');
+    _scenarioRows = data.scenarios || [];
+    renderScenariosTable();
+  } catch(e) {
+    render(html`<div class="empty">Error: ${e.message}</div>`, tbl);
+  }
+}
+
+
+async function loadScenarioDetail(id) {
+  // Always returns to view (read-only) mode. Used by row clicks and by
+  // post-save refresh.
+  editingId = null;
+  editingScenario = null;
+  editingOriginalJSON = '';
+  showPanel('scenario-detail');
+  document.getElementById('scenario-detail-title').textContent = 'Loading…';
+  render(html`<div class="empty">Loading…</div>`, document.getElementById('scenario-detail-content'));
+  render(html``, document.getElementById('scenario-detail-actions'));
+  try {
+    const s = await api('/scenarios/' + encodeURIComponent(id));
+    renderScenarioDetail(id, s);
+  } catch(e) {
+    render(html`<div class="empty">Error: ${e.message}</div>`, document.getElementById('scenario-detail-content'));
+  }
+}
+
+function enterEditMode(id) {
+  // Re-fetch to get a clean editable copy. The view-mode DOM doesn't preserve
+  // the structured shape we need.
+  showPanel('scenario-detail');
+  document.getElementById('scenario-detail-title').textContent = 'Loading…';
+  render(html`<div class="empty">Loading…</div>`, document.getElementById('scenario-detail-content'));
+  render(html``, document.getElementById('scenario-detail-actions'));
+  api('/scenarios/' + encodeURIComponent(id)).then(function (s) {
+    editingId = id;
+    const audit = s._audit || {};
+    delete s._audit;
+    editingScenario = s;
+    if (!editingScenario.hotwash || typeof editingScenario.hotwash !== 'object') editingScenario.hotwash = {};
+    if (!Array.isArray(editingScenario.hotwash.guiding_questions)) editingScenario.hotwash.guiding_questions = [];
+    if (!Array.isArray(editingScenario.success_criteria)) editingScenario.success_criteria = [];
+    editingOriginalJSON = JSON.stringify(editingScenario);
+    window._editAudit = audit;
+    renderScenarioEditor(id, audit);
+  }).catch(function (e) {
+    render(html`<div class="empty">Error: ${e.message}</div>`, document.getElementById('scenario-detail-content'));
+  });
+}
+
+async function cancelEdit() {
+  if (!editingId) return;
+  const dirty = editingScenario && JSON.stringify(editingScenario) !== editingOriginalJSON;
+  if (dirty && !await confirmAction({
+    title: 'Discard changes',
+    message: 'Discard unsaved changes to this scenario?',
+    confirmLabel: 'Discard',
+  })) return;
+  const id = editingId;
+  loadScenarioDetail(id);
+}
+
+async function saveEdits() {
+  if (!editingId || !editingScenario) return;
+  const err = validateScenarioClient(editingScenario);
+  if (err) { alert('Cannot save: ' + err); return; }
+  const btn = document.getElementById('scenario-save-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+  try {
+    const r = await fetch(API + '/scenarios/' + encodeURIComponent(editingId), {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(editingScenario),
+    });
+    if (!r.ok) {
+      const e = await r.json().catch(function () { return { detail: r.statusText }; });
+      throw new Error(e.detail || r.statusText);
+    }
+    toast('Saved.');
+    const savedId = editingId;
+    loadScenarioDetail(savedId);
+  } catch(e) {
+    alert('Save failed: ' + e.message);
+    if (btn) { btn.disabled = false; btn.textContent = 'Save'; }
+  }
+}
+
+// Client-side guards mirroring _validate_scenario_json. Returns null if OK,
+// otherwise a string describing the first problem.
+function validateScenarioClient(s) {
+  if (!s || typeof s !== 'object') return 'Top-level JSON must be an object.';
+  const required = ['scenario_id','metadata','exercise_overview','scenario_details','modules'];
+  for (let i = 0; i < required.length; i++) {
+    if (!(required[i] in s)) return 'Missing required top-level key: ' + required[i];
+  }
+  if (typeof s.scenario_id !== 'string' || !/^ttx-\d{4}-\d{2}-\d{2}-\d{2,}$/.test(s.scenario_id)) {
+    return "scenario_id must match format 'ttx-YYYY-MM-DD-NN'.";
+  }
+  if (s.metadata == null || typeof s.metadata !== 'object' || Array.isArray(s.metadata)) {
+    return "'metadata' must be an object.";
+  }
+  if (s.exercise_overview == null || typeof s.exercise_overview !== 'object' || Array.isArray(s.exercise_overview)) {
+    return "'exercise_overview' must be an object.";
+  }
+  if (s.scenario_details == null || typeof s.scenario_details !== 'object' || Array.isArray(s.scenario_details)) {
+    return "'scenario_details' must be an object.";
+  }
+  const framing = s.metadata.framing;
+  if (framing != null && framing !== 'internal' && framing !== 'vendor-responsibility') {
+    return "metadata.framing must be 'internal' or 'vendor-responsibility'.";
+  }
+  if (!Array.isArray(s.modules)) return "'modules' must be an array.";
+  return null;
+}
+
+function renderInject(inj) {
+  return html`
+    <div style="border-left:3px solid var(--color-accent);padding:8px 12px;margin-bottom:10px;background:var(--color-surface-subtle)">
+      <div style="font-weight:600">${inj.day_or_time || ''} · ${inj.title || ''}</div>
+      ${inj.trigger_source ? html`<div style="font-size:12px;color:var(--color-muted)">Source: ${inj.trigger_source}</div>` : ''}
+      <div style="margin-top:6px;white-space:pre-wrap;font-size:13px">${inj.narrative || ''}</div>
+      ${(inj.indicators || []).length ? html`
+        <div style="margin-top:6px;font-size:12px"><strong>Indicators:</strong> ${(inj.indicators || []).join('; ')}</div>` : ''}
+      ${(inj.expected_actions || []).length ? html`
+        <div style="margin-top:6px;font-size:12px"><strong>Expected actions:</strong>
+          <ul style="margin-left:18px">${(inj.expected_actions || []).map(a => html`<li>${a}</li>`)}</ul>
+        </div>` : ''}
+      ${(inj.discussion_questions || []).length ? html`
+        <div style="margin-top:8px">
+          <strong style="font-size:12px">Discussion questions:</strong>
+          <ol style="margin-left:20px;font-size:13px">
+            ${(inj.discussion_questions || []).map(q => html`<li style="margin-top:4px">
+              <span style="font-size:11px;color:var(--color-muted)">[${q.category || ''} · ${q.nist_csf_function || ''}]</span>
+              ${q.question || ''}
+              ${(q.follow_ups || []).length ? html`<ul style="margin-left:18px;font-size:12px;color:var(--color-muted)">
+                ${(q.follow_ups || []).map(f => html`<li>${f}</li>`)}
+              </ul>` : ''}
+            </li>`)}
+          </ol>
+        </div>` : ''}
+    </div>`;
+}
+
+function renderModule(m) {
+  return html`
+    <div class="card" style="margin-bottom:12px">
+      <h3 style="margin-bottom:4px">Module ${m.number}: ${m.title || ''}</h3>
+      <div style="font-size:12px;color:var(--color-muted);margin-bottom:8px">${m.duration_minutes || ''} min</div>
+      ${m.summary ? html`<p style="margin-bottom:10px;white-space:pre-wrap">${m.summary}</p>` : ''}
+      ${(m.injects || []).map(renderInject)}
+    </div>`;
+}
+
+function _humanizeKey(k) {
+  return String(k).replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
+function _isUrl(s) {
+  return typeof s === 'string' && /^https?:\/\//i.test(s.trim());
+}
+
+function renderRefScalar(s) {
+  if (_isUrl(s)) return html`<a href=${s} target="_blank" rel="noopener noreferrer">${s}</a>`;
+  return html`${typeof s === 'string' ? s : JSON.stringify(s)}`;
+}
+
+// Structured renderer for appendices.references — a dict of named lists / URLs.
+function renderReferencesBody(refs) {
+  const entries = Object.entries(refs || {}).filter(([, v]) =>
+    Array.isArray(v) ? v.length : (v != null && v !== ''));
+  if (!entries.length) return '';
+  return html`${entries.map(([k, v]) => html`
+    <div style="margin-bottom:8px">
+      <div style="font-weight:600;font-size:12px;margin-bottom:2px">${_humanizeKey(k)}</div>
+      ${Array.isArray(v)
+        ? html`<ul style="margin-left:20px">${v.map(item => html`<li>${renderRefScalar(item)}</li>`)}</ul>`
+        : html`<div style="margin-left:4px">${renderRefScalar(v)}</div>`}
+    </div>`)}`;
+}
+
+// Structured renderer for appendices.facilitator_notes — a dict of named lists.
+function renderFacilitatorNotesBody(notes) {
+  if (!notes || typeof notes !== 'object') return '';
+  const entries = Object.entries(notes).filter(([, v]) =>
+    Array.isArray(v) ? v.length : (v != null && v !== ''));
+  if (!entries.length) return '';
+  return html`${entries.map(([k, v]) => html`
+    <div style="margin-bottom:8px">
+      <div style="font-weight:600;font-size:12px;margin-bottom:2px">${_humanizeKey(k)}</div>
+      ${Array.isArray(v)
+        ? html`<ul style="margin-left:20px">${v.map(item => html`<li>${typeof item === 'string' ? item : JSON.stringify(item)}</li>`)}</ul>`
+        : html`<div style="margin-left:4px">${typeof v === 'string' ? v : JSON.stringify(v)}</div>`}
+    </div>`)}`;
+}
+
+function renderAppendices(app) {
+  const blocks = [];
+  if (app.additional_discussion_questions) {
+    blocks.push(html`<div class="card" style="margin-bottom:12px">
+      <h3 style="margin-bottom:8px">Additional discussion questions</h3>
+      ${Object.entries(app.additional_discussion_questions || {}).map(([cat, qs]) => html`
+        <div style="margin-bottom:8px">
+          <strong>${cat}</strong>
+          <ul style="margin-left:20px">
+            ${(qs || []).map(q => html`<li>${typeof q === 'string' ? q : (q.question || JSON.stringify(q))}</li>`)}
+          </ul>
+        </div>`)}
+    </div>`);
+  }
+  const facNotes = renderFacilitatorNotesBody(app.facilitator_notes);
+  if (facNotes) {
+    blocks.push(html`<div class="card" style="margin-bottom:12px">
+      <h3 style="margin-bottom:8px">Facilitator notes</h3>
+      ${facNotes}
+    </div>`);
+  }
+  const refs = renderReferencesBody(app.references);
+  if (refs) {
+    blocks.push(html`<div class="card">
+      <h3 style="margin-bottom:8px">References</h3>
+      ${refs}
+    </div>`);
+  }
+  return blocks.length ? html`<div class="section"><div class="section-title">Appendices</div>${blocks}</div>` : '';
+}
+
+function renderScenarioDetailsCard(details) {
+  const background = (details.background || '').trim();
+  const audience = Array.isArray(details.target_audience) ? details.target_audience.filter(Boolean) : [];
+  const actor = details.threat_actor && typeof details.threat_actor === 'object' ? details.threat_actor : null;
+  const mitre = details.mitre_attack && typeof details.mitre_attack === 'object' ? details.mitre_attack : null;
+  const tactics = mitre && Array.isArray(mitre.tactics) ? mitre.tactics.filter(Boolean) : [];
+  const techniques = mitre && Array.isArray(mitre.techniques) ? mitre.techniques.filter(t => t && (t.id || t.name)) : [];
+  const tech = Array.isArray(details.technologies_involved)
+    ? details.technologies_involved.filter(t => t && (t.name || t.role))
+    : [];
+
+  const hasAnything = background || audience.length || actor || tactics.length || techniques.length || tech.length;
+  if (!hasAnything) return '';
+
+  return html`
+    <div class="section">
+      <div class="section-title">Scenario Details</div>
+      <div class="card">
+        ${background ? html`
+          <p><strong>Background:</strong></p>
+          <p style="margin-top:4px;white-space:pre-wrap">${background}</p>` : ''}
+
+        ${audience.length ? html`
+          <p style="margin-top:12px"><strong>Target audience:</strong> ${audience.join(', ')}</p>` : ''}
+
+        ${actor ? html`
+          <p style="margin-top:12px"><strong>Threat actor:</strong> ${actor.name || '—'}</p>
+          <ul style="margin-left:20px;margin-top:4px">
+            ${actor.type ? html`<li><strong>Type:</strong> ${actor.type}</li>` : ''}
+            ${actor.motivation ? html`<li><strong>Motivation:</strong> ${actor.motivation}</li>` : ''}
+            ${actor.sophistication ? html`<li><strong>Sophistication:</strong> ${actor.sophistication}</li>` : ''}
+            ${actor.ttps_summary ? html`<li><strong>TTPs:</strong> ${actor.ttps_summary}</li>` : ''}
+          </ul>` : ''}
+
+        ${tactics.length || techniques.length ? html`
+          <p style="margin-top:12px"><strong>MITRE ATT&amp;CK:</strong></p>
+          ${tactics.length ? html`<p style="margin-top:4px"><em>Tactics:</em> ${tactics.join(', ')}</p>` : ''}
+          ${techniques.length ? html`
+            <ul style="margin-left:20px;margin-top:4px">
+              ${techniques.map(t => html`<li><code>${t.id || ''}</code>${t.id && t.name ? ' — ' : ''}${t.name || ''}</li>`)}
+            </ul>` : ''}` : ''}
+
+        ${tech.length ? html`
+          <p style="margin-top:12px"><strong>Technologies involved:</strong></p>
+          <ul style="margin-left:20px;margin-top:4px">
+            ${tech.map(t => html`<li><strong>${t.name || ''}</strong>${t.name && t.role ? ' — ' : ''}${t.role || ''}</li>`)}
+          </ul>` : ''}
+      </div>
+    </div>`;
+}
+
+function renderScenarioDetail(id, s) {
+  const overview = s.exercise_overview || {};
+  const details = s.scenario_details || {};
+  const meta = s.metadata || {};
+  const audit = s._audit || {};
+  document.getElementById('scenario-detail-title').textContent = overview.name || s.scenario_id;
+
+  render(html`
+    <button class="btn btn-secondary btn-sm" @click=${() => downloadScenario(id)}>Download JSON</button>
+    <button class="btn btn-secondary btn-sm" @click=${() => enterEditMode(id)}>Edit</button>
+    <button class="btn btn-secondary btn-sm" @click=${() => copyScenario(id)}>Copy</button>
+    <button class="btn btn-danger btn-sm" @click=${() => deleteScenario(id)}>Delete</button>
+  `, document.getElementById('scenario-detail-actions'));
+
+  render(html`
+    <div class="card" style="margin-bottom:16px">
+      <div style="display:flex;gap:18px;flex-wrap:wrap;font-size:13px">
+        <div><strong>ID:</strong> <code>${s.scenario_id}</code></div>
+        <div><strong>Type:</strong> ${details.type || '—'}</div>
+        <div><strong>Framing:</strong> ${meta.framing || '—'}</div>
+        <div><strong>Difficulty:</strong> ${details.difficulty || '—'}</div>
+        <div><strong>Modules:</strong> ${(s.modules || []).length}</div>
+        <div><strong>Created:</strong> ${fmtDate(audit.created_at)}</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Exercise Overview</div>
+      <div class="card">
+        <p><strong>Purpose:</strong> ${overview.purpose || '—'}</p>
+        <p style="margin-top:8px"><strong>NIST CSF functions:</strong>
+          ${(overview.nist_csf_functions || []).join(', ') || '—'}
+        </p>
+        <p style="margin-top:8px"><strong>Scenario summary:</strong></p>
+        <p style="margin-top:4px;white-space:pre-wrap">${overview.scenario_summary || '—'}</p>
+        ${(overview.objectives || []).length ? html`
+          <p style="margin-top:8px"><strong>Objectives:</strong></p>
+          <ul style="margin-left:20px">
+            ${(overview.objectives || []).map(o => html`<li>${o}</li>`)}
+          </ul>` : ''}
+      </div>
+    </div>
+
+    ${renderScenarioDetailsCard(details)}
+
+    <div class="section">
+      <div class="section-title">Modules (${(s.modules || []).length})</div>
+      ${(s.modules || []).map(renderModule)}
+    </div>
+
+    ${s.hotwash && (s.hotwash.guiding_questions || []).length ? html`
+      <div class="section">
+        <div class="section-title">Hotwash</div>
+        <div class="card">
+          <div style="font-size:12px;color:var(--color-muted);margin-bottom:6px">${s.hotwash.duration_minutes || ''} min</div>
+          <ul style="margin-left:20px">
+            ${(s.hotwash.guiding_questions || []).map(q => html`<li>${q}</li>`)}
+          </ul>
+        </div>
+      </div>` : ''}
+
+    ${renderAppendices(s.appendices || {})}
+
+    ${(s.success_criteria || []).length ? html`
+      <div class="section">
+        <div class="section-title">Success Criteria</div>
+        <div class="card">
+          <ul style="margin-left:20px">
+            ${(s.success_criteria || []).map(c => html`<li>${typeof c === 'string' ? c : JSON.stringify(c)}</li>`)}
+          </ul>
+        </div>
+      </div>` : ''}
+  `, document.getElementById('scenario-detail-content'));
+}
+
+function renderAdqQuestion(cat, qi, q) {
+  const fups = Array.isArray(q.follow_ups) ? q.follow_ups : [];
+  return html`<div style="border:1px solid var(--color-muted);border-radius:4px;padding:8px 10px;margin:6px 0;background:#fff">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <strong style="font-size:12px">Question ${qi + 1}</strong>
+      <button class="btn btn-danger btn-sm" type="button" @click=${() => removeAdqQuestion(cat, qi)}>Remove</button>
+    </div>
+    <div class="form-row">
+      <label>NIST CSF function</label>
+      <select .value=${q.nist_csf_function || ''}
+        @change=${e => setAdqQuestionField(cat, qi, 'nist_csf_function', e.target.value)}>
+        <option value="">\u2014</option>
+        ${NIST_CSF_FUNCTIONS.map(f => html`<option value=${f} ?selected=${f === q.nist_csf_function}>${f}</option>`)}
+      </select>
+    </div>
+    <div class="form-row">
+      <label>Question</label>
+      <textarea rows="2" .value=${q.question || ''}
+        @input=${e => setAdqQuestionField(cat, qi, 'question', e.target.value)}></textarea>
+    </div>
+    <div class="form-row" style="margin-top:6px">
+      <label style="font-size:12px">Follow-ups</label>
+      ${fups.map((f, fi) => html`<div style="display:flex;gap:6px;margin-bottom:4px">
+        <input type="text" style="flex:1" .value=${f || ''}
+          @input=${e => setAdqFollowUp(cat, qi, fi, e.target.value)} />
+        <button class="btn btn-secondary btn-sm" type="button"
+          @click=${() => removeAdqFollowUp(cat, qi, fi)}>Remove</button>
+      </div>`)}
+      <button class="btn btn-secondary btn-sm" type="button"
+        @click=${() => addAdqFollowUp(cat, qi)}>+ Add follow-up</button>
+    </div>
+  </div>`;
+}
+
+function renderAdqCategoryBlock(cat, items) {
+  const allCats = DISCUSSION_CATEGORIES.slice();
+  if (allCats.indexOf(cat) === -1) allCats.unshift(cat);
+  return html`<div style="border-left:3px solid var(--color-accent);padding:8px 12px;margin-bottom:10px;background:var(--color-surface-subtle)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <div style="display:flex;align-items:center;gap:8px">
+        <strong>Category:</strong>
+        <select .value=${cat} @change=${e => setAdqCategory(cat, e.target.value)}>
+          ${allCats.map(c => html`<option value=${c} ?selected=${c === cat}>${c}</option>`)}
+        </select>
+        <span style="font-size:12px;color:var(--color-muted)">(${items.length} question${items.length === 1 ? '' : 's'})</span>
+      </div>
+      <button class="btn btn-danger btn-sm" type="button" @click=${() => removeAdqCategory(cat)}>Remove category</button>
+    </div>
+    ${items.map((q, qi) => renderAdqQuestion(cat, qi, q))}
+    <button class="btn btn-secondary btn-sm" type="button" @click=${() => addAdqQuestion(cat)}>+ Add question</button>
+  </div>`;
+}
+
+function renderAdqBlock() {
+  const obj = (editingScenario && editingScenario.appendices && editingScenario.appendices.additional_discussion_questions) || {};
+  const cats = Object.keys(obj);
+  return html`<div class="section">
+    <div class="section-title">Additional Discussion Questions (${cats.length} categor${cats.length === 1 ? 'y' : 'ies'})</div>
+    <div class="card">
+      ${cats.map(c => renderAdqCategoryBlock(c, obj[c] || []))}
+      <button class="btn btn-secondary btn-sm" type="button" @click=${addAdqCategory}>+ Add category</button>
+    </div>
+  </div>`;
+}
+
+function renderQuestionEditor(q, mi, ii, qi) {
+  const fups = Array.isArray(q.follow_ups) ? q.follow_ups : [];
+  return html`<div style="border:1px solid var(--color-muted);border-radius:4px;padding:8px 10px;margin:6px 0;background:#fff">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <strong style="font-size:12px">Question ${qi + 1}</strong>
+      <button class="btn btn-danger btn-sm" type="button" @click=${() => removeQuestion(mi, ii, qi)}>Remove</button>
+    </div>
+    <div class="form-row">
+      <label>Category</label>
+      <select .value=${q.category || ''} @change=${e => setQuestionField(mi, ii, qi, 'category', e.target.value)}>
+        <option value="">\u2014</option>
+        ${DISCUSSION_CATEGORIES.map(c => html`<option value=${c} ?selected=${c === q.category}>${c}</option>`)}
+      </select>
+    </div>
+    <div class="form-row">
+      <label>NIST CSF function</label>
+      <select .value=${q.nist_csf_function || ''} @change=${e => setQuestionField(mi, ii, qi, 'nist_csf_function', e.target.value)}>
+        <option value="">\u2014</option>
+        ${NIST_CSF_FUNCTIONS.map(f => html`<option value=${f} ?selected=${f === q.nist_csf_function}>${f}</option>`)}
+      </select>
+    </div>
+    <div class="form-row">
+      <label>Question</label>
+      <textarea rows="2" .value=${q.question || ''}
+        @input=${e => setQuestionField(mi, ii, qi, 'question', e.target.value)}></textarea>
+    </div>
+    <div class="form-row" style="margin-top:6px">
+      <label style="font-size:12px">Follow-ups</label>
+      ${!fups.length ? html`<div style="font-size:12px;color:var(--color-muted);margin-bottom:6px">(no follow-ups)</div>` : ''}
+      ${fups.map((f, fi) => html`<div style="display:flex;gap:6px;margin-bottom:4px">
+        <input type="text" style="flex:1" .value=${f || ''}
+          @input=${e => setFollowUpItem(mi, ii, qi, fi, e.target.value)} />
+        <button class="btn btn-secondary btn-sm" type="button" @click=${() => removeFollowUp(mi, ii, qi, fi)}>Remove</button>
+      </div>`)}
+      <button class="btn btn-secondary btn-sm" type="button" @click=${() => addFollowUp(mi, ii, qi)}>+ Add follow-up</button>
+    </div>
+  </div>`;
+}
+
+function renderInjectStringList(label, mi, ii, field) {
+  const lst = _injectStringList(mi, ii, field) || [];
+  return html`<div class="form-row">
+    <label>${label}</label>
+    ${!lst.length ? html`<div style="font-size:12px;color:var(--color-muted);margin-bottom:6px">(no items)</div>` : ''}
+    ${lst.map((item, k) => html`<div style="display:flex;gap:6px;margin-bottom:4px">
+      <input type="text" style="flex:1" .value=${item || ''}
+        @input=${e => setInjectStringItem(mi, ii, field, k, e.target.value)} />
+      <button class="btn btn-secondary btn-sm" type="button" @click=${() => removeInjectStringItem(mi, ii, field, k)}>Remove</button>
+    </div>`)}
+    <button class="btn btn-secondary btn-sm" type="button" @click=${() => addInjectStringItem(mi, ii, field)}>+ Add</button>
+  </div>`;
+}
+
+function renderInjectEditor(inj, mi, ii) {
+  const arr = _injectsList(mi) || [];
+  return html`<div style="border-left:2px solid var(--color-muted);padding:8px 12px;margin:8px 0;background:var(--color-surface-subtle)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <strong>Inject ${ii + 1}</strong>
+      <div>
+        ${ii > 0 ? html`<button class="btn btn-secondary btn-sm" type="button" @click=${() => moveInject(mi, ii, -1)}>\u25b2</button> ` : ''}
+        ${ii < arr.length - 1 ? html`<button class="btn btn-secondary btn-sm" type="button" @click=${() => moveInject(mi, ii, 1)}>\u25bc</button> ` : ''}
+        <button class="btn btn-danger btn-sm" type="button" @click=${() => removeInject(mi, ii)}>Remove inject</button>
+      </div>
+    </div>
+    <div class="form-row">
+      <label>Title</label>
+      <input type="text" .value=${inj.title || ''} @change=${e => setInjectField(mi, ii, 'title', e.target.value)} />
+    </div>
+    <div class="form-row">
+      <label>Day or time</label>
+      <input type="text" .value=${inj.day_or_time || ''} placeholder="Day 1 \u2014 14:02 UTC"
+        @change=${e => setInjectField(mi, ii, 'day_or_time', e.target.value)} />
+    </div>
+    <div class="form-row">
+      <label>Trigger source</label>
+      <input type="text" .value=${inj.trigger_source || ''} placeholder="Wiz, CrowdStrike, Facilitator narration, ..."
+        @change=${e => setInjectField(mi, ii, 'trigger_source', e.target.value)} />
+    </div>
+    <div class="form-row">
+      <label>Trigger condition</label>
+      <input type="text" .value=${inj.trigger_condition || ''}
+        @change=${e => setInjectField(mi, ii, 'trigger_condition', e.target.value)} />
+    </div>
+    <div class="form-row">
+      <label>Narrative</label>
+      <textarea rows="4" .value=${inj.narrative || ''}
+        @input=${e => setInjectField(mi, ii, 'narrative', e.target.value)}></textarea>
+    </div>
+    ${renderInjectStringList('Indicators', mi, ii, 'indicators')}
+    ${renderInjectStringList('Expected actions (facilitator-only)', mi, ii, 'expected_actions')}
+    <div style="margin-top:10px"><strong style="font-size:12px">Discussion questions (${(inj.discussion_questions || []).length})</strong></div>
+    ${(inj.discussion_questions || []).map((q, qi) => renderQuestionEditor(q, mi, ii, qi))}
+    <button class="btn btn-secondary btn-sm" type="button" @click=${() => addQuestion(mi, ii)}>+ Add question</button>
+  </div>`;
+}
+
+function renderModuleEditor(m, mi) {
+  const modules = editingScenario.modules || [];
+  return html`<div class="card" style="margin-bottom:12px;border-left:3px solid var(--color-accent);padding-left:14px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <h3 style="margin:0">Module ${mi + 1}</h3>
+      <div>
+        ${mi > 0 ? html`<button class="btn btn-secondary btn-sm" type="button" @click=${() => moveModule(mi, -1)}>\u25b2</button> ` : ''}
+        ${mi < modules.length - 1 ? html`<button class="btn btn-secondary btn-sm" type="button" @click=${() => moveModule(mi, 1)}>\u25bc</button> ` : ''}
+        <button class="btn btn-danger btn-sm" type="button" @click=${() => removeModule(mi)}>Remove module</button>
+      </div>
+    </div>
+    <div class="form-row">
+      <label>Title</label>
+      <input type="text" .value=${m.title || ''} @change=${e => setModuleField(mi, 'title', e.target.value)} />
+    </div>
+    <div class="form-row">
+      <label>Duration (minutes)</label>
+      <input type="number" min="0" .value=${m.duration_minutes != null ? String(m.duration_minutes) : ''}
+        @change=${e => setModuleField(mi, 'duration_minutes', e.target.value)} />
+    </div>
+    <div class="form-row">
+      <label>Summary</label>
+      <textarea rows="3" .value=${m.summary || ''} @input=${e => setModuleField(mi, 'summary', e.target.value)}></textarea>
+    </div>
+    <div style="margin-top:10px"><strong style="font-size:13px">Injects (${(m.injects || []).length})</strong></div>
+    ${(m.injects || []).map((inj, ii) => renderInjectEditor(inj, mi, ii))}
+    <button class="btn btn-secondary btn-sm" type="button" @click=${() => addInject(mi)}>+ Add inject</button>
+  </div>`;
+}
+
+function renderModulesBlock() {
+  const mods = (editingScenario && editingScenario.modules) || [];
+  return html`<div class="section">
+    <div class="section-title">Modules (${mods.length})</div>
+    ${mods.map((m, i) => renderModuleEditor(m, i))}
+    <button class="btn btn-secondary btn-sm" type="button" @click=${addModule}>+ Add module</button>
+  </div>`;
+}
+
+function renderReadonlyExtras(s) {
+  const overview = s.exercise_overview || {};
+  const details = s.scenario_details || {};
+  const meta = s.metadata || {};
+  const app = s.appendices || {};
+  const blocks = [];
+
+  const objs = Array.isArray(overview.objectives) ? overview.objectives : [];
+  const nist = Array.isArray(overview.nist_csf_functions) ? overview.nist_csf_functions : [];
+  const timeline = Array.isArray(overview.activity_timeline) ? overview.activity_timeline : [];
+  if (objs.length || nist.length || timeline.length) {
+    blocks.push(html`<div class="card" style="margin-bottom:10px">
+      <strong>Exercise Overview — extras</strong>
+      ${objs.length ? html`
+        <p style="margin-top:6px"><em>Objectives:</em></p>
+        <ul style="margin-left:20px">${objs.map(o => html`<li>${o}</li>`)}</ul>` : ''}
+      ${nist.length ? html`<p style="margin-top:6px"><em>NIST CSF functions:</em> ${nist.join(', ')}</p>` : ''}
+      ${timeline.length ? html`
+        <p style="margin-top:6px"><em>Activity timeline:</em></p>
+        <ul style="margin-left:20px">${timeline.map(t => html`<li>${t.duration_minutes || ''} min — ${t.activity || ''}</li>`)}</ul>` : ''}
+    </div>`);
+  }
+
+  const ta = Array.isArray(details.target_audience) ? details.target_audience : [];
+  const techs = Array.isArray(details.technologies_involved) ? details.technologies_involved : [];
+  if (ta.length || details.threat_actor || details.mitre_attack || techs.length) {
+    blocks.push(html`<div class="card" style="margin-bottom:10px">
+      <strong>Scenario Details — extras</strong>
+      ${ta.length ? html`<p style="margin-top:6px"><em>Target audience:</em> ${ta.join(', ')}</p>` : ''}
+      ${details.threat_actor ? html`
+        <p style="margin-top:6px"><em>Threat actor:</em></p>
+        <pre style="white-space:pre-wrap;font-family:inherit;font-size:12px">${JSON.stringify(details.threat_actor, null, 2)}</pre>` : ''}
+      ${details.mitre_attack ? html`
+        <p style="margin-top:6px"><em>MITRE ATT&CK:</em></p>
+        <pre style="white-space:pre-wrap;font-family:inherit;font-size:12px">${JSON.stringify(details.mitre_attack, null, 2)}</pre>` : ''}
+      ${techs.length ? html`
+        <p style="margin-top:6px"><em>Technologies involved:</em></p>
+        <ul style="margin-left:20px">${techs.map(t => html`<li><strong>${t.name || ''}:</strong> ${t.role || ''}</li>`)}</ul>` : ''}
+    </div>`);
+  }
+
+  const gsu = Array.isArray(meta.grounding_sources_used) ? meta.grounding_sources_used : [];
+  if (gsu.length) {
+    blocks.push(html`<div class="card" style="margin-bottom:10px">
+      <strong>Metadata — extras</strong>
+      <p style="margin-top:6px"><em>Grounding sources used:</em></p>
+      <ul style="margin-left:20px">${gsu.map(g => html`<li>${g}</li>`)}</ul>
+    </div>`);
+  }
+
+  const roles = s.participant_roles || {};
+  if (roles.players || roles.observers || roles.facilitators || roles.note_takers) {
+    blocks.push(html`<div class="card" style="margin-bottom:10px">
+      <strong>Participant Roles</strong>
+      ${['players','observers','facilitators','note_takers']
+        .filter(k => roles[k])
+        .map(k => html`<p style="margin-top:6px"><em>${k.replace(/_/g,' ')}:</em> ${roles[k]}</p>`)}
+    </div>`);
+  }
+
+  const guidelines = Array.isArray(s.exercise_guidelines) ? s.exercise_guidelines : [];
+  if (guidelines.length) {
+    blocks.push(html`<div class="card" style="margin-bottom:10px">
+      <strong>Exercise Guidelines</strong>
+      <ul style="margin-left:20px">${guidelines.map(g => html`<li>${g}</li>`)}</ul>
+    </div>`);
+  }
+
+  const hw = s.hotwash || {};
+  if (hw.purpose || hw.duration_minutes != null) {
+    blocks.push(html`<div class="card" style="margin-bottom:10px">
+      <strong>Hotwash — extras</strong>
+      ${hw.duration_minutes != null ? html`<p style="margin-top:6px"><em>Duration:</em> ${hw.duration_minutes} min</p>` : ''}
+      ${hw.purpose ? html`<p style="margin-top:6px"><em>Purpose:</em> ${hw.purpose}</p>` : ''}
+    </div>`);
+  }
+
+  const roFacNotes = renderFacilitatorNotesBody(app.facilitator_notes);
+  if (roFacNotes) {
+    blocks.push(html`<div class="card" style="margin-bottom:10px">
+      <strong>Facilitator Notes</strong>
+      <div style="margin-top:6px">${roFacNotes}</div>
+    </div>`);
+  }
+  const roRefs = renderReferencesBody(app.references);
+  if (roRefs) {
+    blocks.push(html`<div class="card">
+      <strong>References</strong>
+      <div style="margin-top:6px">${roRefs}</div>
+    </div>`);
+  }
+
+  return html`<div class="section">
+    <div class="section-title">Read-only (preserved on save — editor not implemented in v1.5)</div>
+    ${blocks}
+  </div>`;
+}
+
+function renderScenarioEditor(id, audit) {
+  const s = editingScenario || {};
+  const overview = s.exercise_overview || {};
+  const details = s.scenario_details || {};
+  const meta = s.metadata || {};
+  document.getElementById('scenario-detail-title').textContent = (overview.name || s.scenario_id || 'Scenario') + ' (editing)';
+
+  render(html`
+    <button class="btn btn-secondary btn-sm" disabled title="Exit edit mode to download">Download JSON</button>
+    <button class="btn btn-primary btn-sm" id="scenario-save-btn" @click=${saveEdits}>Save</button>
+    <button class="btn btn-secondary btn-sm" @click=${cancelEdit}>Cancel</button>
+  `, document.getElementById('scenario-detail-actions'));
+
+  render(html`
+    <div class="card" style="margin-bottom:16px">
+      <div style="display:flex;gap:18px;flex-wrap:wrap;font-size:13px">
+        <div><strong>ID:</strong> <code>${s.scenario_id || ''}</code></div>
+        <div><strong>Type:</strong> ${details.scenario_type || details.type || '\u2014'}</div>
+        <div><strong>Framing:</strong> ${meta.framing || '\u2014'}</div>
+        <div><strong>Difficulty:</strong> ${details.difficulty || '\u2014'}</div>
+        <div><strong>Modules:</strong> ${(s.modules || []).length}</div>
+        <div><strong>Created:</strong> ${fmtDate((audit || {}).created_at)}</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Identity</div>
+      <div class="card">
+        ${renderTextInput('Scenario ID', 'scenario_id', s.scenario_id, { placeholder: 'ttx-YYYY-MM-DD-NN' })}
+        <div class="form-hint">Must match the pattern <code>ttx-YYYY-MM-DD-NN</code>. Changing it must not collide with another scenario.</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Metadata</div>
+      <div class="card">
+        ${renderSelect('Framing', 'metadata.framing', meta.framing, FRAMINGS)}
+        ${renderTextarea('Fictional disclaimer', 'metadata.fictional_disclaimer', meta.fictional_disclaimer, { rows: 3 })}
+        ${renderTextInput('Generated at', 'metadata.generated_at', meta.generated_at, { placeholder: '2026-05-26T16:30:00Z' })}
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Exercise Overview</div>
+      <div class="card">
+        ${renderTextInput('Name', 'exercise_overview.name', overview.name)}
+        ${renderTextarea('Purpose', 'exercise_overview.purpose', overview.purpose, { rows: 3 })}
+        ${renderTextInput('Threat or hazard', 'exercise_overview.threat_or_hazard', overview.threat_or_hazard)}
+        ${renderTextarea('Scenario summary', 'exercise_overview.scenario_summary', overview.scenario_summary, { rows: 4 })}
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Scenario Details</div>
+      <div class="card">
+        ${renderTextInput('Title', 'scenario_details.title', details.title)}
+        ${renderSelect('Scenario type', 'scenario_details.scenario_type', details.scenario_type || details.type, SCENARIO_TYPES)}
+        ${renderSelect('Difficulty', 'scenario_details.difficulty', details.difficulty, DIFFICULTIES)}
+        ${renderTextarea('Background', 'scenario_details.background', details.background, { rows: 5 })}
+      </div>
+    </div>
+
+    ${renderModulesBlock()}
+    ${renderAdqBlock()}
+
+    <div class="section">
+      <div class="section-title">Hotwash</div>
+      <div class="card">${renderStringList('Guiding questions', 'hotwash.guiding_questions')}</div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Success Criteria</div>
+      <div class="card">${renderStringList('Criteria', 'success_criteria')}</div>
+    </div>
+
+    ${renderReadonlyExtras(s)}
+  `, document.getElementById('scenario-detail-content'));
+}
+
+// Re-renders the editor in place. Triggered by add/remove/reorder ops on any
+// list. Scalar field edits do NOT call this so input focus is preserved.
+function rerenderEditor() {
+  if (!editingId || !editingScenario) return;
+  if (!window._editAudit) window._editAudit = {};
+  renderScenarioEditor(editingId, window._editAudit);
+}
+
+function downloadScenario(id) {
+  window.location.href = API + '/scenarios/' + encodeURIComponent(id) + '/download';
+}
+
+async function copyScenario(id) {
+  try {
+    const row = await api('/scenarios/' + encodeURIComponent(id) + '/copy', { method: 'POST' });
+    toast('Copied as ' + row.scenario_id + '.');
+    loadScenarioDetail(row.id);
+  } catch(e) { alert('Error: ' + e.message); }
+}
+
+async function deleteScenario(id) {
+  if (!await confirmAction({
+    title: 'Delete scenario',
+    message: 'Delete this scenario from the library? This cannot be undone.',
+    confirmLabel: 'Delete',
+  })) return;
+  try {
+    await api('/scenarios/' + encodeURIComponent(id), { method: 'DELETE' });
+    toast('Scenario deleted.');
+    showPanel('scenarios');
+  } catch(e) { alert('Error: ' + e.message); }
+}
+
+// ---------- Confirmation modal ----------
+// The single path for every destructive or confirming action. Returns a
+// Promise<boolean> — true if the user confirms. The message is set via
+// textContent, so user-controlled values (titles, category names) are never
+// parsed as HTML. Replaces the native confirm() used previously.
+let _confirmResolve = null;
+let _confirmReturnFocus = null;
+
+function confirmAction({ title = 'Confirm', message = '', confirmLabel = 'Confirm', danger = true } = {}) {
+  document.getElementById('confirm-modal-title').textContent = title;
+  document.getElementById('confirm-modal-message').textContent = message;
+  const accept = document.getElementById('confirm-modal-accept');
+  accept.textContent = confirmLabel;
+  accept.className = 'btn ' + (danger ? 'btn-danger' : 'btn-primary');
+  _confirmReturnFocus = document.activeElement;
+  document.getElementById('confirm-modal').classList.add('open');
+  accept.focus();
+  return new Promise(resolve => { _confirmResolve = resolve; });
+}
+
+function _settleConfirm(result) {
+  if (!_confirmResolve) return;
+  const resolve = _confirmResolve;
+  _confirmResolve = null;
+  document.getElementById('confirm-modal').classList.remove('open');
+  if (_confirmReturnFocus && _confirmReturnFocus.focus) _confirmReturnFocus.focus();
+  _confirmReturnFocus = null;
+  resolve(result);
+}
+
+(function wireConfirmModal() {
+  const modal = document.getElementById('confirm-modal');
+  document.getElementById('confirm-modal-accept').addEventListener('click', () => _settleConfirm(true));
+  modal.querySelectorAll('[data-confirm-cancel]').forEach(
+    el => el.addEventListener('click', () => _settleConfirm(false))
+  );
+  modal.addEventListener('click', e => { if (e.target === modal) _settleConfirm(false); });
+  modal.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { e.preventDefault(); _settleConfirm(false); return; }
+    if (e.key !== 'Tab') return;
+    const f = modal.querySelectorAll('button');
+    if (!f.length) return;
+    const first = f[0], last = f[f.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  });
+})();
+
+// Init is triggered from the module <script> at the top of the file,
+// after lit-html has loaded and window.litHtml/litRender/litRepeat are set.
+</script>
+</body>
+</html>

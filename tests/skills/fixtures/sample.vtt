@@ -1,0 +1,14 @@
+WEBVTT
+
+NOTE This is a note block and must be ignored.
+
+1
+00:00:01.000 --> 00:00:05.000
+<v Alex Chen>The SOC just got a Scanner alert about a suspicious inbox rule.
+
+2
+00:00:05.500 --> 00:00:09.000
+Jordan Lee: We should revoke the M365 sessions, not just reset the password.
+
+00:01:00.000 --> 00:01:03.000
+<v Alex Chen>Agreed. I'll open an IR20 ticket now.

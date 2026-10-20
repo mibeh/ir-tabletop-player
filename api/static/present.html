@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>IR Tabletop Player — Presenter</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lato:wght@400;600;700&display=swap" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-text-strong: #1f2937;
+      --color-accent: #2563eb;
+      --color-background: #ffffff;
+      --color-muted: #5a6772;
+      --color-faint: #c9d1d8;
+      --color-surface-subtle: #f4f6f8;
+    }
+    html, body { height: 100%; }
+    body {
+      font-family: 'Lato', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--color-background);
+      color: var(--color-text-strong);
+      display: flex; flex-direction: column;
+      min-height: 100vh;
+    }
+    main { flex: 1; padding: 4vh 5vw; display: flex; flex-direction: column; justify-content: center; max-width: 1400px; margin: 0 auto; width: 100%; }
+    .slide-meta {
+      text-transform: uppercase; letter-spacing: 0.08em; font-size: 14px;
+      color: var(--color-accent); font-weight: 700; margin-bottom: 12px;
+    }
+    .slide-title {
+      font-size: 38px; line-height: 1.15; font-weight: 700; color: var(--color-text-strong);
+      margin-bottom: 24px;
+    }
+    .slide-narrative { font-size: 20px; line-height: 1.5; color: #333; margin-bottom: 20px; }
+    .slide-summary  { font-size: 20px; line-height: 1.5; color: var(--color-muted); margin-bottom: 20px; }
+    .slide-indicators {
+      background: var(--color-surface-subtle); border-left: 4px solid var(--color-accent);
+      padding: 14px 20px; border-radius: 4px; margin-bottom: 22px;
+    }
+    .slide-indicators-label {
+      font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--color-text-strong); font-weight: 700; margin-bottom: 8px;
+    }
+    .slide-indicators ul { list-style: disc; padding-left: 22px; font-size: 17px; color: #333; }
+    .slide-indicators li { margin-bottom: 4px; }
+    .slide-questions { display: flex; flex-direction: column; gap: 16px; margin-top: 12px; }
+    .slide-question {
+      background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px;
+      padding: 16px 20px;
+    }
+    .slide-question-meta {
+      font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--color-accent); font-weight: 700; margin-bottom: 6px;
+    }
+    .slide-question-text { font-size: 20px; line-height: 1.4; color: var(--color-text-strong); font-weight: 600; }
+    .rule-list, .hotwash-list { padding-left: 28px; font-size: 22px; line-height: 1.55; color: var(--color-text-strong); }
+    .rule-list li, .hotwash-list li { margin-bottom: 12px; }
+    footer {
+      padding: 14px 5vw; display: flex; justify-content: space-between;
+      font-size: 12px; letter-spacing: 0.06em; color: var(--color-faint); text-transform: uppercase;
+    }
+    .slide-empty {
+      flex: 1; display: flex; align-items: center; justify-content: center;
+      font-size: 22px; color: var(--color-muted);
+    }
+    .overlay {
+      position: fixed; inset: 0;
+      background: rgba(37, 55, 70, 0.6);
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-size: 36px; letter-spacing: 0.04em; font-weight: 600;
+      z-index: 1000;
+    }
+    .fs-hint {
+      position: fixed; right: 12px; bottom: 12px;
+      font-size: 11px; color: var(--color-faint); letter-spacing: 0.05em;
+    }
+    #browse-controls { display: flex; gap: 8px; }
+    .nav-btn {
+      font-family: inherit; font-size: 12px; font-weight: 600;
+      padding: 6px 14px; border-radius: 4px; letter-spacing: 0.04em;
+      border: 1px solid var(--color-faint); background: #fff; color: var(--color-text-strong);
+      cursor: pointer; text-transform: none;
+    }
+    .nav-btn:hover:not(:disabled) { border-color: var(--color-accent); color: var(--color-accent); }
+    .nav-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+  </style>
+</head>
+<body>
+  <main id="slide"></main>
+  <footer>
+    <span>IR Tabletop Player</span>
+    <span id="browse-controls"></span>
+    <span id="position"></span>
+  </footer>
+  <div id="overlay-host"></div>
+  <div class="fs-hint" id="fs-hint">Click anywhere for fullscreen</div>
+
+<script src="/static/lib.js"></script>
+<script type="module">
+  import { html, render } from "https://esm.sh/lit-html@3";
+  import { repeat } from "https://esm.sh/lit-html@3/directives/repeat.js";
+  window.litHtml = html;
+  window.litRender = render;
+  window.litRepeat = repeat;
+  // Boot.
+  startPresenter();
+</script>
+<script>
+// Project convention (per CLAUDE.md): all dynamic rendering goes through
+// lit-html templates so interpolated values are auto-escaped by position.
+// Static helper strings can use textContent. Never innerHTML on elements
+// that interpolate scenario- or error-controlled strings.
+
+let exerciseId = null;
+let lastSlideId = '__init__';
+let lastStatus = '__init__';
+let lastRevealedSig = '';
+let pollTimer = null;
+
+// Browse mode — entered once the exercise is complete. The presenter view stops
+// following the (now-absent) facilitator and lets you page through the deck
+// locally for review. Slide content is the frozen exercise data, so injects show
+// the questions that were revealed live.
+let browseMode = false;
+let browseDeck = [];
+let browseIdx = 0;
+let browseExercise = null;
+
+function startPresenter() {
+  exerciseId = window.btExerciseIdFromHash();
+  if (!exerciseId) {
+    const html = window.btHtml;
+    window.btRender(
+      html`<div class="slide-empty">No exercise ID in URL. Expected: <code>/present.html#&lt;exercise-id&gt;</code></div>`,
+      document.getElementById('slide')
+    );
+    return;
+  }
+  document.addEventListener('click', enterFullscreenOnce, { once: true });
+  poll();
+  pollTimer = setInterval(poll, 1000);
+}
+
+function enterFullscreenOnce() {
+  document.getElementById('fs-hint').style.display = 'none';
+  if (document.documentElement.requestFullscreen) {
+    document.documentElement.requestFullscreen().catch(() => {});
+  }
+}
+
+async function poll() {
+  try {
+    const ex = await window.btApi('/exercises/' + exerciseId);
+    renderState(ex);
+  } catch (e) {
+    const html = window.btHtml;
+    window.btRender(
+      html`<div class="slide-empty">Connection error: ${e.message}</div>`,
+      document.getElementById('slide')
+    );
+  }
+}
+
+function injectRevealedSignature(ex) {
+  // Cheap dirty-check so re-renders only happen when relevant state changes.
+  const inj = currentInject(ex);
+  if (!inj) return '';
+  return JSON.stringify(inj.revealed_questions || []);
+}
+
+function currentInject(ex) {
+  if (!ex.current_slide) return null;
+  const p = window.btParseSlideId(ex.current_slide);
+  if (p.kind !== 'inject') return null;
+  return window.btFindInject(ex.modules, p.module_idx, p.sequence);
+}
+
+function renderState(ex) {
+  if (ex.status === 'complete') {
+    enterBrowseMode(ex);
+    return;
+  }
+
+  const newSig = injectRevealedSignature(ex);
+  const needsRerender =
+    ex.current_slide !== lastSlideId ||
+    ex.status !== lastStatus ||
+    newSig !== lastRevealedSig;
+
+  // Status overlays — all overlay text is hardcoded; safe via lit-html.
+  // We deliberately do NOT overlay the slide during debrief/complete: the
+  // facilitator can reopen the presenter view for review and the slide
+  // content must stay readable.
+  const html = window.btHtml;
+  const overlayHost = document.getElementById('overlay-host');
+  const overlayTpl = ex.status === 'paused'
+    ? html`<div class="overlay">Exercise paused</div>`
+    : html``;
+  window.btRender(overlayTpl, overlayHost);
+
+  if (!needsRerender) return;
+  lastSlideId = ex.current_slide;
+  lastStatus = ex.status;
+  lastRevealedSig = newSig;
+
+  window.btRender(window.btRenderSlide(ex), document.getElementById('slide'));
+
+  // Footer position label uses textContent (no HTML).
+  const label = ex.current_slide ? window.btSlideLabel(ex.current_slide, ex) : '';
+  document.getElementById('position').textContent = label;
+}
+
+function enterBrowseMode(ex) {
+  if (browseMode) return;
+  browseMode = true;
+  if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+  browseExercise = ex;
+  browseDeck = window.btComputeDeck(ex.modules);
+  browseIdx = 0;
+  document.addEventListener('keydown', onBrowseKey);
+  renderBrowse();
+}
+
+function browseGo(delta) {
+  const next = browseIdx + delta;
+  if (next < 0 || next >= browseDeck.length) return;
+  browseIdx = next;
+  renderBrowse();
+}
+
+function onBrowseKey(e) {
+  if (e.key === 'ArrowRight' || e.key === 'PageDown' || e.key === ' ') {
+    e.preventDefault();
+    browseGo(1);
+  } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+    e.preventDefault();
+    browseGo(-1);
+  }
+}
+
+function renderBrowse() {
+  const html = window.btHtml;
+  const slideId = browseDeck[browseIdx];
+  const exForSlide = Object.assign({}, browseExercise, { current_slide: slideId });
+  window.btRender(window.btRenderSlide(exForSlide), document.getElementById('slide'));
+
+  const atStart = browseIdx === 0;
+  const atEnd = browseIdx === browseDeck.length - 1;
+  window.btRender(html`
+    <button class="nav-btn" ?disabled=${atStart} @click=${() => browseGo(-1)}>◀ Previous</button>
+    <button class="nav-btn" ?disabled=${atEnd} @click=${() => browseGo(1)}>Next ▶</button>
+  `, document.getElementById('browse-controls'));
+
+  document.getElementById('position').textContent =
+    window.btSlideLabel(slideId, browseExercise) + ` · ${browseIdx + 1} / ${browseDeck.length}`;
+}
+</script>
+</body>
+</html>

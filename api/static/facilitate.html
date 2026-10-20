@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>IR Tabletop Player — Facilitator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lato:wght@400;600;700&display=swap" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-text-strong: #1f2937;
+      --color-accent: #2563eb;
+      --color-accent-hover: #1d4ed8;
+      --color-muted: #5a6772;
+      --color-faint: #c9d1d8;
+      --color-surface-subtle: #f4f6f8;
+      --color-background: #f7f8fa;
+      --color-border: #dde2e7;
+    }
+    html, body { height: 100%; }
+    body {
+      font-family: 'Lato', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--color-background);
+      color: var(--color-text-strong);
+      font-size: 13px;
+    }
+    header.topbar {
+      background: #fff; border-bottom: 1px solid var(--color-border);
+      padding: 10px 18px; display: flex; align-items: center; gap: 14px;
+    }
+    .where { font-weight: 700; font-size: 14px; }
+    .where small { color: var(--color-muted); font-weight: 400; margin-left: 6px; }
+    .spacer { flex: 1; }
+    select, button.ctrl {
+      font-family: inherit; font-size: 12px; font-weight: 600;
+      padding: 6px 12px; border-radius: 4px; border: 1px solid var(--color-faint);
+      background: #fff; color: var(--color-text-strong); cursor: pointer;
+    }
+    button.ctrl.primary { background: var(--color-accent); color: #fff; border-color: var(--color-accent); }
+    button.ctrl.primary:hover { background: var(--color-accent-hover); }
+    button.ctrl:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    main { display: grid; grid-template-columns: 1.2fr 1fr; gap: 16px; padding: 16px; }
+    .pane { display: flex; flex-direction: column; gap: 12px; }
+    .mirror {
+      background: #fff; border: 1px solid var(--color-border); border-radius: 8px;
+      padding: 18px 22px; min-height: 240px;
+      /* Mirror styles override slide font sizes for compactness. */
+    }
+    .mirror .slide-meta { font-size: 10px; color: var(--color-accent); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 4px; }
+    .mirror .slide-title { font-size: 18px; margin-bottom: 10px; font-weight: 700; }
+    .mirror .slide-narrative,
+    .mirror .slide-summary { font-size: 12px; margin-bottom: 8px; line-height: 1.45; color: #333; }
+    .mirror .slide-indicators { background: var(--color-surface-subtle); border-left: 3px solid var(--color-accent); padding: 8px 12px; border-radius: 4px; margin-bottom: 8px; }
+    .mirror .slide-indicators-label { font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--color-text-strong); font-weight: 700; margin-bottom: 4px; }
+    .mirror .slide-indicators ul { padding-left: 18px; font-size: 11px; }
+    .mirror .slide-question { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 4px; padding: 8px 10px; margin-top: 6px; }
+    .mirror .slide-question-meta { font-size: 9px; color: var(--color-accent); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+    .mirror .slide-question-text { font-size: 12px; font-weight: 600; }
+    .mirror .rule-list, .mirror .hotwash-list { font-size: 12px; padding-left: 20px; }
+    .shared-label {
+      font-size: 9px; color: var(--color-accent); font-weight: 700;
+      letter-spacing: 0.08em; text-transform: uppercase;
+      padding: 6px 0;
+    }
+
+    .panel { background: #fff; border: 1px solid var(--color-border); border-radius: 8px; padding: 12px 14px; }
+    .panel-head {
+      font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--color-muted); font-weight: 700; margin-bottom: 8px;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .checks { list-style: none; }
+    .checks li { padding: 4px 0; display: flex; gap: 10px; align-items: flex-start; font-size: 12px; }
+    .checks input { margin-top: 3px; }
+
+    .q-item {
+      padding: 8px 10px; background: var(--color-surface-subtle); border-radius: 4px;
+      margin-bottom: 6px; border-left: 3px solid transparent;
+    }
+    .q-item.revealed { background: #eff6ff; border-left-color: var(--color-accent); }
+    .q-head { display: flex; gap: 8px; justify-content: space-between; align-items: flex-start; }
+    .q-cat { font-size: 9.5px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--color-muted); font-weight: 700; }
+    .q-text { font-size: 12px; margin-top: 3px; }
+    .q-reveal {
+      font-size: 10px; font-weight: 600; padding: 3px 10px; border-radius: 3px;
+      border: 1px solid var(--color-faint); background: #fff; color: var(--color-text-strong);
+      cursor: pointer; white-space: nowrap;
+    }
+    .q-item.revealed .q-reveal { background: var(--color-accent); color: #fff; border-color: var(--color-accent); cursor: default; }
+    .followups { list-style: none; padding-left: 0; margin-top: 6px; }
+    .followups li {
+      font-size: 10.5px; color: var(--color-muted);
+      padding: 2px 0 2px 16px; position: relative;
+    }
+    .followups li::before { content: "↳"; position: absolute; left: 0; color: var(--color-accent); }
+    .adq-section { border-top: 1px solid var(--color-border); }
+    .adq-section:first-of-type { border-top: none; }
+    .adq-section > summary {
+      cursor: pointer; list-style: none; padding: 6px 0;
+      font-size: 11px; font-weight: 700; color: var(--color-text-strong); letter-spacing: 0.04em;
+    }
+    .adq-section > summary::-webkit-details-marker { display: none; }
+    .adq-section > summary::before { content: "▸"; color: var(--color-accent); margin-right: 6px; }
+    .adq-section[open] > summary::before { content: "▾"; }
+    .adq-count { color: var(--color-muted); font-weight: 400; }
+    .adq-body { padding: 2px 0 8px; }
+    textarea {
+      width: 100%; min-height: 90px; resize: vertical; font-family: inherit;
+      font-size: 12px; padding: 8px 10px; border: 1px solid var(--color-border);
+      border-radius: 4px; color: var(--color-text-strong);
+    }
+    .empty-right { color: var(--color-muted); font-size: 13px; padding: 24px; text-align: center; }
+    .paused .mirror { opacity: 0.5; }
+    .not-launched { padding: 64px 24px; text-align: center; font-size: 16px; color: var(--color-muted); }
+    .not-launched a { color: var(--color-accent); }
+  </style>
+</head>
+<body>
+  <header class="topbar" id="topbar"></header>
+  <main id="body"></main>
+
+<script src="/static/lib.js"></script>
+<script type="module">
+  import { html, render } from "https://esm.sh/lit-html@3";
+  import { repeat } from "https://esm.sh/lit-html@3/directives/repeat.js";
+  window.litHtml = html;
+  window.litRender = render;
+  window.litRepeat = repeat;
+  startFacilitator();
+</script>
+<script>
+// Project convention (per CLAUDE.md): all dynamic rendering goes through
+// lit-html templates so interpolated values are auto-escaped by position.
+// Event handlers bind via @click=${fn} closures. Never use innerHTML on
+// elements that interpolate scenario-controlled strings.
+
+let exerciseId = null;
+let pollTimer = null;
+let secondTimer = null;
+let lastExercise = null;
+let notesDebounce = null;
+let notesDirty = false;
+let notesLocalValue = '';     // in-progress textarea content (current inject only)
+let notesLocalKey = '';        // "<moduleIdx>:<sequence>" of the inject notesLocalValue belongs to
+let liveElapsedSec = 0;        // updated by tickTimer; re-rendered by renderAll
+let debriefLocal = null;       // {summary, follow_up_actions:[{owner,action}]}
+let debriefDirty = false;
+let debriefDebounce = null;
+
+function startFacilitator() {
+  exerciseId = window.btExerciseIdFromHash();
+  if (!exerciseId) {
+    const html = window.btHtml;
+    window.btRender(
+      html`<div class="not-launched">No exercise ID in URL. Expected: <code>/facilitate.html#&lt;exercise-id&gt;</code></div>`,
+      document.getElementById('body')
+    );
+    return;
+  }
+  poll();
+  pollTimer = setInterval(poll, 1000);
+  secondTimer = setInterval(tickTimer, 1000);
+}
+
+async function poll() {
+  try {
+    const ex = await window.btApi('/exercises/' + exerciseId);
+    lastExercise = ex;
+    renderAll(ex);
+  } catch (e) {
+    const html = window.btHtml;
+    window.btRender(
+      html`<div class="where">Connection error: ${e.message}</div>`,
+      document.getElementById('topbar')
+    );
+  }
+}
+
+function renderAll(ex) {
+  if (ex.status === 'complete') {
+    window.location.href = '/#exercise=' + exerciseId;
+    return;
+  }
+  document.body.classList.toggle('paused', ex.status === 'paused');
+
+  if (!ex.current_slide) {
+    renderNotLaunched();
+    return;
+  }
+
+  renderTopbar(ex);
+  renderMain(ex);
+}
+
+function renderTopbar(ex) {
+  const html = window.btHtml;
+  const label = window.btSlideLabel(ex.current_slide, ex);
+  const day = injectDayOrTime(ex);
+  const deck = window.btComputeDeck(ex.modules);
+  const furthestIdx = deck.indexOf(ex.furthest_slide);
+  const isDebrief = ex.status === 'debrief';
+  const onHotwash = ex.current_slide === 'hotwash';
+  const pauseLabel = ex.status === 'paused' ? '▶ Resume' : '⏸ Pause';
+  const tpl = html`
+    <div class="where">
+      ${label}
+      ${day ? html`<small>· ${day}</small>` : ''}
+      <small>· ${window.btFormatDuration(liveElapsedSec)}</small>
+      ${isDebrief ? html`<small>· Debrief</small>` : ''}
+    </div>
+    <div class="spacer"></div>
+    <select title="Jump to a previously-visited slide" @change=${onJump}>
+      <option value="">Jump to…</option>
+      ${deck.map((sid, idx) => html`
+        <option
+          value=${sid}
+          ?disabled=${idx > furthestIdx}
+          ?selected=${sid === ex.current_slide}
+        >${window.btSlideLabel(sid, ex)}</option>
+      `)}
+    </select>
+    <button class="ctrl" @click=${onPrev}>◀ Previous</button>
+    ${isDebrief
+      ? html`
+          <button class="ctrl" ?disabled=${onHotwash} @click=${onNext}>Next slide ▶</button>
+          <button class="ctrl primary" @click=${onComplete}>Complete Exercise</button>`
+      : html`
+          <button class="ctrl" @click=${onPauseResume}>${pauseLabel}</button>
+          <button class="ctrl primary" @click=${onNext}>Next slide ▶</button>`}
+  `;
+  window.btRender(tpl, document.getElementById('topbar'));
+}
+
+function renderMain(ex) {
+  const html = window.btHtml;
+  const parsed = window.btParseSlideId(ex.current_slide);
+  const isInject = parsed.kind === 'inject';
+  const isHotwash = parsed.kind === 'hotwash';
+  const inj = isInject ? window.btFindInject(ex.modules, parsed.module_idx, parsed.sequence) : null;
+  const app = ex.appendices || {};
+
+  const actions = isInject ? (inj.expected_actions || []) : [];
+  const checked = new Set(isInject ? (inj.expected_actions_checked || []) : []);
+  const qs = isInject ? (inj.discussion_questions || []) : [];
+  const revealed = new Set(isInject ? (inj.revealed_questions || []) : []);
+
+  const tpl = html`
+    <div class="pane">
+      <div class="mirror">${window.btRenderSlide(ex)}</div>
+      <div class="shared-label">SCREEN-SHARED — what participants see</div>
+      ${isInject && actions.length ? html`
+        <div class="panel">
+          <div class="panel-head">
+            <span>Expected actions</span>
+            <span>${checked.size} / ${actions.length}</span>
+          </div>
+          <ul class="checks">
+            ${actions.map((a, i) => html`
+              <li>
+                <input
+                  type="checkbox"
+                  .checked=${checked.has(i)}
+                  @change=${(e) => onActionToggle(parsed, i, e.target.checked)}
+                >
+                <span>${a}</span>
+              </li>
+            `)}
+          </ul>
+        </div>` : ''}
+      ${(isInject || isHotwash) ? renderScenarioFacilitatorNotes(app.facilitator_notes) : ''}
+    </div>
+    <div class="pane">
+      ${!isHotwash ? html`
+        <div class="panel">
+          <div class="panel-head">
+            <span>Discussion questions</span>
+            ${isInject ? html`<span>${revealed.size} / ${qs.length} revealed</span>` : ''}
+          </div>
+          ${!isInject
+            ? html`<div class="empty-right">No questions on this slide — discuss verbally and move on when ready.</div>`
+            : qs.length === 0
+              ? html`<div class="empty-right">No discussion questions on this inject.</div>`
+              : qs.map((q, i) => renderQuestionItem(q, i, revealed.has(i), parsed))}
+        </div>` : ''}
+      ${isInject ? html`
+        <div class="panel">
+          <div class="panel-head"><span>Facilitator notes (this inject)</span></div>
+          <textarea
+            placeholder="Notes you'll see at debrief…"
+            .value=${notesValueFor(parsed, inj)}
+            @input=${(e) => onNotesInput(e, parsed)}
+          ></textarea>
+        </div>` : ''}
+      ${isHotwash ? renderHotwashAdq(app.additional_discussion_questions) : ''}
+      ${isHotwash ? renderDebriefNotes(ex) : ''}
+    </div>
+  `;
+  window.btRender(tpl, document.getElementById('body'));
+}
+
+function humanizeKey(k) {
+  return String(k).replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
+// Scenario-level facilitator notes (appendices.facilitator_notes) — a dict of
+// named lists. Facilitator-only, shown on inject slides, styled like the
+// Expected actions panel.
+function renderScenarioFacilitatorNotes(notes) {
+  const html = window.btHtml;
+  if (!notes || typeof notes !== 'object') return '';
+  const entries = Object.entries(notes).filter(([, v]) =>
+    Array.isArray(v) ? v.length : (v != null && v !== ''));
+  if (!entries.length) return '';
+  return html`
+    <div class="panel">
+      <div class="panel-head"><span>Facilitator tips</span></div>
+      ${entries.map(([k, v]) => html`
+        <div style="margin-bottom:8px">
+          <div class="q-cat">${humanizeKey(k)}</div>
+          ${Array.isArray(v)
+            ? html`<ul style="margin:2px 0 0 18px;font-size:12px">${v.map(item => html`<li>${typeof item === 'string' ? item : JSON.stringify(item)}</li>`)}</ul>`
+            : html`<div style="font-size:12px">${typeof v === 'string' ? v : JSON.stringify(v)}</div>`}
+        </div>`)}
+    </div>`;
+}
+
+// Appendix discussion-question bank (appendices.additional_discussion_questions)
+// — a dict of category -> questions. Facilitator-only reference shown on the
+// hotwash slide.
+function renderHotwashAdq(adq) {
+  const html = window.btHtml;
+  if (!adq || typeof adq !== 'object') return '';
+  const cats = Object.entries(adq).filter(([, qs]) => Array.isArray(qs) && qs.length);
+  if (!cats.length) return '';
+  return html`
+    <div class="panel">
+      <div class="panel-head"><span>Additional discussion questions</span></div>
+      ${cats.map(([cat, qs]) => html`
+        <details class="adq-section">
+          <summary>${cat} <span class="adq-count">(${qs.length})</span></summary>
+          <div class="adq-body">
+            ${qs.map((q) => {
+              const text = typeof q === 'string' ? q : (q.question || '');
+              const fups = (q && Array.isArray(q.follow_ups)) ? q.follow_ups : [];
+              return html`
+                <div class="q-item">
+                  <div class="q-text">${text}</div>
+                  ${fups.length ? html`<ul class="followups">${fups.map((fu) => html`<li>${fu}</li>`)}</ul>` : ''}
+                </div>`;
+            })}
+          </div>
+        </details>`)}
+    </div>`;
+}
+
+function renderQuestionItem(q, idx, isRevealed, parsed) {
+  const html = window.btHtml;
+  const catLabel = (q.category || '') + (q.nist_csf_function ? ' · ' + q.nist_csf_function : '');
+  return html`
+    <div class=${'q-item' + (isRevealed ? ' revealed' : '')}>
+      <div class="q-head">
+        <div>
+          <div class="q-cat">${catLabel}</div>
+          <div class="q-text">${q.question || ''}</div>
+        </div>
+        <button
+          class="q-reveal"
+          ?disabled=${isRevealed}
+          @click=${() => { if (!isRevealed) onReveal(parsed, idx); }}
+        >${isRevealed ? 'Revealed ✓' : 'Reveal'}</button>
+      </div>
+      ${isRevealed && (q.follow_ups || []).length ? html`
+        <ul class="followups">
+          ${(q.follow_ups || []).map((fu) => html`<li>${fu}</li>`)}
+        </ul>` : ''}
+    </div>
+  `;
+}
+
+function renderNotLaunched() {
+  const html = window.btHtml;
+  window.btRender(html`<div class="where">Exercise not launched</div>`, document.getElementById('topbar'));
+  window.btRender(
+    html`<div class="not-launched">
+      Open the admin view and click <strong>Begin Exercise</strong> to start.<br><br>
+      <a href=${'/#exercise=' + exerciseId}>Go to admin →</a>
+    </div>`,
+    document.getElementById('body')
+  );
+}
+
+function injectDayOrTime(ex) {
+  const p = window.btParseSlideId(ex.current_slide);
+  if (p.kind !== 'inject') return '';
+  const inj = window.btFindInject(ex.modules, p.module_idx, p.sequence);
+  return (inj && inj.day_or_time) || '';
+}
+
+function tickTimer() {
+  if (!lastExercise || !lastExercise.started_at) return;
+  const started = new Date(lastExercise.started_at).getTime();
+  const now = Date.now();
+  const pausedSec = lastExercise.paused_total_seconds || 0;
+  let elapsedSec = Math.floor((now - started) / 1000) - pausedSec;
+  if (lastExercise.status === 'paused' && lastExercise.paused_at) {
+    const pausedAt = new Date(lastExercise.paused_at).getTime();
+    elapsedSec -= Math.floor((now - pausedAt) / 1000);
+  }
+  liveElapsedSec = Math.max(0, elapsedSec);
+  if (lastExercise.current_slide) renderTopbar(lastExercise);
+}
+
+async function onNext() {
+  await window.btApi('/exercises/' + exerciseId + '/present/next', { method: 'POST' });
+  poll();
+}
+async function onPrev() {
+  await window.btApi('/exercises/' + exerciseId + '/present/previous', { method: 'POST' });
+  poll();
+}
+async function onPauseResume() {
+  const path = lastExercise && lastExercise.status === 'paused' ? 'resume' : 'pause';
+  await window.btApi('/exercises/' + exerciseId + '/' + path, { method: 'POST' });
+  poll();
+}
+async function onComplete() {
+  await window.btApi('/exercises/' + exerciseId + '/complete', { method: 'POST' });
+  poll();
+}
+async function onJump(e) {
+  const sid = e.target.value;
+  if (!sid) return;
+  await window.btApi('/exercises/' + exerciseId + '/present/goto', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ slide_id: sid }),
+  });
+  e.target.value = '';
+  poll();
+}
+async function onReveal(parsed, idx) {
+  await window.btApi('/exercises/' + exerciseId + '/present/reveal', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      module_idx: parsed.module_idx, sequence: parsed.sequence, question_idx: idx,
+    }),
+  });
+  poll();
+}
+async function onActionToggle(parsed, idx, checked) {
+  const inj = window.btFindInject(lastExercise.modules, parsed.module_idx, parsed.sequence);
+  const set = new Set(inj.expected_actions_checked || []);
+  if (checked) set.add(idx); else set.delete(idx);
+  await window.btApi('/exercises/' + exerciseId + '/present/inject', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      module_idx: parsed.module_idx, sequence: parsed.sequence,
+      expected_actions_checked: Array.from(set),
+    }),
+  });
+  poll();
+}
+function notesValueFor(parsed, inj) {
+  const key = parsed.module_idx + ':' + parsed.sequence;
+  if (notesDirty && notesLocalKey === key) return notesLocalValue;
+  return inj.facilitator_notes || '';
+}
+
+function onNotesInput(e, parsed) {
+  const key = parsed.module_idx + ':' + parsed.sequence;
+  notesLocalKey = key;
+  notesLocalValue = e.target.value;
+  notesDirty = true;
+  clearTimeout(notesDebounce);
+  notesDebounce = setTimeout(async () => {
+    try {
+      await window.btApi('/exercises/' + exerciseId + '/present/inject', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          module_idx: parsed.module_idx, sequence: parsed.sequence,
+          facilitator_notes: notesLocalValue,
+        }),
+      });
+    } finally {
+      notesDirty = false;
+      poll();
+    }
+  }, 500);
+}
+
+function ensureDebriefLocal(ex) {
+  // Re-seed from the server only when the user isn't mid-edit, so the 1s poll
+  // re-render doesn't clobber unsaved changes (same contract as inject notes).
+  if (debriefLocal === null || !debriefDirty) {
+    debriefLocal = {
+      summary: ex.debrief_summary || '',
+      follow_up_actions: (ex.follow_up_actions || []).map((fu) => ({
+        owner: fu.owner || '',
+        action: fu.action || '',
+      })),
+    };
+  }
+}
+
+function renderDebriefNotes(ex) {
+  const html = window.btHtml;
+  ensureDebriefLocal(ex);
+  const d = debriefLocal;
+  return html`
+    <div class="panel">
+      <div class="panel-head"><span>Debrief notes</span></div>
+      <textarea
+        placeholder="Debrief summary — captured for the after-action report…"
+        .value=${d.summary}
+        @input=${onDebriefSummaryInput}
+      ></textarea>
+      <div class="panel-head" style="margin-top:10px"><span>Follow-up actions</span></div>
+      ${d.follow_up_actions.map((fu, i) => html`
+        <div class="fu-row" style="display:flex;gap:6px;margin-bottom:6px">
+          <input type="text" placeholder="Owner" .value=${fu.owner}
+            @input=${(e) => onDebriefFuInput(i, 'owner', e.target.value)} style="flex:1" />
+          <input type="text" placeholder="Action item" .value=${fu.action}
+            @input=${(e) => onDebriefFuInput(i, 'action', e.target.value)} style="flex:3" />
+          <button class="ctrl" @click=${() => onDebriefFuRemove(i)} title="Remove">✕</button>
+        </div>`)}
+      <button class="ctrl" @click=${onDebriefFuAdd}>+ Add action</button>
+    </div>`;
+}
+
+function scheduleDebriefSave() {
+  debriefDirty = true;
+  clearTimeout(debriefDebounce);
+  debriefDebounce = setTimeout(saveDebriefNow, 600);
+}
+
+async function saveDebriefNow() {
+  const body = {
+    debrief_summary: debriefLocal.summary,
+    follow_up_actions: debriefLocal.follow_up_actions.filter(
+      (fu) => fu.owner.trim() || fu.action.trim()
+    ),
+  };
+  try {
+    await window.btApi('/exercises/' + exerciseId + '/debrief', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+  } finally {
+    debriefDirty = false;
+  }
+}
+
+function onDebriefSummaryInput(e) {
+  debriefLocal.summary = e.target.value;
+  scheduleDebriefSave();
+}
+
+function onDebriefFuInput(i, field, value) {
+  debriefLocal.follow_up_actions[i][field] = value;
+  scheduleDebriefSave();
+}
+
+function onDebriefFuAdd() {
+  debriefLocal.follow_up_actions.push({ owner: '', action: '' });
+  debriefDirty = true;
+  renderMain(lastExercise);
+}
+
+function onDebriefFuRemove(i) {
+  debriefLocal.follow_up_actions.splice(i, 1);
+  debriefDirty = true;
+  scheduleDebriefSave();
+  renderMain(lastExercise);
+}
+</script>
+</body>
+</html>
